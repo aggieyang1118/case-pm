@@ -43,7 +43,7 @@
       return;
     }
 
-    document.title = kase.name + '｜南屯區工程案件管理';
+    document.title = kase.name + '｜工程案件管理';
     document.getElementById('pageTitle').textContent = kase.name;
     document.getElementById('crumbName').textContent = kase.name;
 
