@@ -76,8 +76,18 @@
         <input type="number" id="f-contract" placeholder="0">
       </div>
       <div class="field">
-        <label>已執行金額（元）</label>
+        <label>實支金額（元）</label>
         <input type="number" id="f-executed" placeholder="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>已派工金額（元）</label>
+        <input type="number" id="f-dispatched" placeholder="0">
+      </div>
+      <div class="field">
+        <label>後擴金額（元）</label>
+        <input type="number" id="f-expansion" placeholder="0">
       </div>
     </div>
     <div class="field">
@@ -87,22 +97,6 @@
     <div class="field">
       <label>最新進度</label>
       <input type="text" id="f-progress" placeholder="例：瀝青鋪面施作中，預計 XX 完成">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>目前狀態</label>
-        <input type="text" id="f-status" placeholder="例：施工中">
-      </div>
-      <div class="field">
-        <label>目前階段</label>
-        <select id="f-stage">
-          <option value="0">決標</option>
-          <option value="1">開工</option>
-          <option value="2">施工中</option>
-          <option value="3">驗收</option>
-          <option value="4">結案</option>
-        </select>
-      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancelAdd">取消</button>
