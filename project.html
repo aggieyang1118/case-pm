@@ -42,11 +42,15 @@
     <div class="panel-head">
       <div>
         <h3>工程進度網圖</h3>
-        <p>左側為工項事務，右側為時間軸與現場照片 / 檔案，滑過照片可預覽放大，點擊可全螢幕檢視。</p>
+        <p>每個關卡代表一項工程進度，點擊關卡查看日期、備註與現場照片，點圖片可全螢幕檢視。</p>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增工項</button>
+      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增關卡</button>
     </div>
-    <div class="net-table" id="netTable"><!-- injected --></div>
+    <div class="level-map-scroll">
+      <div class="level-map" id="levelMap">
+        <svg class="level-svg" id="levelSvg"></svg>
+      </div>
+    </div>
   </section>
 
   <!-- 養工流程 -->
@@ -90,6 +94,7 @@
     <h3>新增工項</h3>
     <div class="field"><label>工項名稱</label><input type="text" id="t-name" placeholder="例：瀝青混凝土鋪設"></div>
     <div class="field"><label>負責單位／人員</label><input type="text" id="t-owner" placeholder="例：順成營造 / 王工務"></div>
+    <div class="field"><label>備註</label><textarea id="t-note" placeholder="例：已核准開工，函文字號 XXX"></textarea></div>
     <div class="field-row">
       <div class="field"><label>開始日期</label><input type="date" id="t-start"></div>
       <div class="field"><label>結束日期</label><input type="date" id="t-end"></div>
