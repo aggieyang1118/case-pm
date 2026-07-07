@@ -126,7 +126,6 @@
   document.getElementById('btnSaveAdd').addEventListener('click', async () => {
     const name = document.getElementById('f-name').value.trim();
     if(!name){ alert('請輸入標案名稱'); return; }
-    const stageIdx = Number(document.getElementById('f-stage').value);
     const btn = document.getElementById('btnSaveAdd');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
@@ -136,10 +135,10 @@
         category: document.getElementById('f-category').value,
         contractAmount: Number(document.getElementById('f-contract').value) || 0,
         executedAmount: Number(document.getElementById('f-executed').value) || 0,
+        dispatchedAmount: Number(document.getElementById('f-dispatched').value) || 0,
+        expansionAmount: Number(document.getElementById('f-expansion').value) || 0,
         contractor: document.getElementById('f-contractor').value.trim() || '尚未決標',
         latestProgress: document.getElementById('f-progress').value.trim(),
-        status: document.getElementById('f-status').value.trim() || DataStore.STAGE_LABELS[stageIdx],
-        stage: stageIdx,
         startDate: '', endDate: '',
       });
       modal.classList.remove('open');
