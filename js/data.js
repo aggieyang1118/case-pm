@@ -17,11 +17,11 @@
 const DB_KEY = 'epm_demo_db_v1';
 
 const CATEGORY_META = {
-  road:     { label: '路平專案', color: '#4a5fc1' },
-  drain:    { label: '排水工程', color: '#3e8574' },
-  bridge:   { label: '橋梁維護', color: '#6b6f76' },
-  facility: { label: '公共設施', color: '#a23e3e' },
-  other:    { label: '其他案件', color: '#9c8b6b' },
+  road:     { label: '路平專案', color: '#5b8fb0' },
+  drain:    { label: '排水工程', color: '#6a9080' },
+  bridge:   { label: '橋梁維護', color: '#8087b0' },
+  facility: { label: '公共設施', color: '#c17b5f' },
+  other:    { label: '其他案件', color: '#a89a82' },
 };
 
 const STAGE_LABELS = ['決標', '開工', '施工中', '驗收', '結案'];
@@ -36,6 +36,8 @@ function seedData(){
         category: 'road',
         contractAmount: 8_650_000,
         executedAmount: 5_980_000,
+        dispatchedAmount: 7_200_000,
+        expansionAmount: 0,
         stage: 2,
         status: '施工中',
         contractor: '順成營造有限公司',
@@ -50,6 +52,8 @@ function seedData(){
         category: 'drain',
         contractAmount: 4_320_000,
         executedAmount: 4_320_000,
+        dispatchedAmount: 4_320_000,
+        expansionAmount: 150_000,
         stage: 4,
         status: '已結案',
         contractor: '福運土木工程行',
@@ -64,6 +68,8 @@ function seedData(){
         category: 'bridge',
         contractAmount: 6_100_000,
         executedAmount: 1_050_000,
+        dispatchedAmount: 2_400_000,
+        expansionAmount: 0,
         stage: 1,
         status: '開工準備',
         contractor: '志堅工程股份有限公司',
@@ -78,6 +84,8 @@ function seedData(){
         category: 'facility',
         contractAmount: 3_280_000,
         executedAmount: 0,
+        dispatchedAmount: 0,
+        expansionAmount: 0,
         stage: 0,
         status: '決標中',
         contractor: '尚未決標',
@@ -95,11 +103,14 @@ function seedData(){
     ],
     tasks: {
       c1: [
-        { id:'t1', name:'路面刨除與級配整平', owner:'順成營造 / 王工務', status:'done', start:'2026-03-10', end:'2026-04-05', attachments:[
+        { id:'t0', name:'開工', owner:'公所工務課', status:'done', start:'2026-03-10', end:'2026-03-10', note:'2026年3月10日奉核准開工，詳如開工報告函。', attachments:[
+          {type:'image', url:'https://images.unsplash.com/photo-1568992687947-868a62a9f521?w=600&q=80', name:'開工報告函'},
+        ]},
+        { id:'t1', name:'路面刨除與級配整平', owner:'順成營造 / 王工務', status:'done', start:'2026-03-10', end:'2026-04-05', note:'刨除舊有路面至設計高程，級配壓實達 95% 以上。', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=600&q=80', name:'刨除作業照片'},
           {type:'image', url:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80', name:'級配整平'},
         ]},
-        { id:'t2', name:'瀝青混凝土鋪設', owner:'順成營造 / 王工務', status:'progress', start:'2026-04-06', end:'2026-05-20', attachments:[
+        { id:'t2', name:'瀝青混凝土鋪設', owner:'順成營造 / 王工務', status:'progress', start:'2026-04-06', end:'2026-05-20', note:'配比設計已送審核准，分兩層鋪設。', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&q=80', name:'鋪面作業'},
           {type:'file', name:'配比設計送審單.pdf'},
         ]},
@@ -202,6 +213,12 @@ const LocalBackend = {
     saveDB(db);
     return caseObj;
   },
+  async updateCase(caseId, patch){
+    const db = loadDB();
+    const c = db.cases.find(x => x.id === caseId);
+    if(c){ Object.assign(c, patch); saveDB(db); }
+    return c;
+  },
   async getWeeklyGlobal(){ return loadDB().weeklyGlobal; },
   async getTasks(caseId){ return loadDB().tasks[caseId] || []; },
   async addTask(caseId, task){
@@ -217,6 +234,12 @@ const LocalBackend = {
     const db = loadDB();
     const task = (db.tasks[caseId]||[]).find(t=>t.id===taskId);
     if(task){ task.attachments.push(attachment); saveDB(db); }
+    return task;
+  },
+  async updateTaskStatus(caseId, taskId, status){
+    const db = loadDB();
+    const task = (db.tasks[caseId]||[]).find(t=>t.id===taskId);
+    if(task){ task.status = status; saveDB(db); }
     return task;
   },
   async getFlow(caseId){ return loadDB().flow[caseId] || []; },
@@ -295,6 +318,12 @@ const FirebaseBackend = {
     const ref = await window.db.collection('cases').add(caseObj);
     return { id: ref.id, ...caseObj };
   },
+  async updateCase(caseId, patch){
+    const ref = window.db.collection('cases').doc(caseId);
+    await ref.update(patch);
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
   async getWeeklyGlobal(){
     await this._seedIfEmpty();
     const snap = await window.db.collection('weeklyGlobal').get();
@@ -312,6 +341,12 @@ const FirebaseBackend = {
   async addAttachment(caseId, taskId, attachment){
     const ref = window.db.collection('cases').doc(caseId).collection('tasks').doc(taskId);
     await ref.update({ attachments: firebase.firestore.FieldValue.arrayUnion(attachment) });
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
+  async updateTaskStatus(caseId, taskId, status){
+    const ref = window.db.collection('cases').doc(caseId).collection('tasks').doc(taskId);
+    await ref.update({ status });
     const doc = await ref.get();
     return { id: doc.id, ...doc.data() };
   },
@@ -356,10 +391,12 @@ const DataStore = {
   getCases(){ return backend().getCases(); },
   getCase(id){ return backend().getCase(id); },
   addCase(caseObj){ return backend().addCase(caseObj); },
+  updateCase(caseId, patch){ return backend().updateCase(caseId, patch); },
   getWeeklyGlobal(){ return backend().getWeeklyGlobal(); },
   getTasks(caseId){ return backend().getTasks(caseId); },
   addTask(caseId, task){ return backend().addTask(caseId, task); },
   addAttachment(caseId, taskId, attachment){ return backend().addAttachment(caseId, taskId, attachment); },
+  updateTaskStatus(caseId, taskId, status){ return backend().updateTaskStatus(caseId, taskId, status); },
   uploadAttachment(caseId, taskId, file){ return backend().uploadAttachment(caseId, taskId, file); },
   getFlow(caseId){ return backend().getFlow(caseId); },
   getTodos(caseId){ return backend().getTodos(caseId); },
