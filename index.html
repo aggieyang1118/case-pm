@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>南屯區工程案件管理｜案件總覽</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
+      <h1>南屯區工程案件管理<small>案件總覽</small></h1>
+    </div>
+    <div class="topbar-actions">
+      <span class="sync-badge" id="syncBadge">— 模式偵測中 —</span>
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="searchInput" type="text" placeholder="搜尋標案名稱或案號…">
+      </div>
+      <button class="btn btn-primary" id="btnAddCase">＋ 新增標案</button>
+    </div>
+  </header>
+
+  <!-- 跑馬燈：本周待做事項 -->
+  <div class="marquee-strip" role="marquee" aria-label="本周待做事項">
+    <div class="marquee-label"><span class="dot"></span>本週待辦</div>
+    <div class="marquee-track">
+      <ul id="marqueeList"><!-- injected --></ul>
+    </div>
+  </div>
+
+  <!-- 分類篩選 -->
+  <div class="filter-row" id="filterRow">
+    <button class="chip active" data-cat="all">全部案件</button>
+  </div>
+
+  <!-- 案件卡片 -->
+  <section class="grid" id="caseGrid">
+    <!-- injected -->
+  </section>
+
+  <div class="foot">南屯區公所工務課 · 工程案件管理系統 v1.0</div>
+</div>
+
+<!-- 新增標案 modal -->
+<div class="modal-backdrop" id="addCaseModal">
+  <div class="modal">
+    <h3>新增標案</h3>
+    <div class="field">
+      <label>標案名稱</label>
+      <input type="text" id="f-name" placeholder="例：大墩十九街人行道改善工程">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>案號</label>
+        <input type="text" id="f-code" placeholder="NT-2026-0XX">
+      </div>
+      <div class="field">
+        <label>案件類別</label>
+        <select id="f-category">
+          <option value="road">路平專案</option>
+          <option value="drain">排水工程</option>
+          <option value="bridge">橋梁維護</option>
+          <option value="facility">公共設施</option>
+          <option value="other">其他案件</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>契約金額（元）</label>
+        <input type="number" id="f-contract" placeholder="0">
+      </div>
+      <div class="field">
+        <label>已執行金額（元）</label>
+        <input type="number" id="f-executed" placeholder="0">
+      </div>
+    </div>
+    <div class="field">
+      <label>承包廠商</label>
+      <input type="text" id="f-contractor" placeholder="廠商名稱">
+    </div>
+    <div class="field">
+      <label>最新進度</label>
+      <input type="text" id="f-progress" placeholder="例：瀝青鋪面施作中，預計 XX 完成">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>目前狀態</label>
+        <input type="text" id="f-status" placeholder="例：施工中">
+      </div>
+      <div class="field">
+        <label>目前階段</label>
+        <select id="f-stage">
+          <option value="0">決標</option>
+          <option value="1">開工</option>
+          <option value="2">施工中</option>
+          <option value="3">驗收</option>
+          <option value="4">結案</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelAdd">取消</button>
+      <button class="btn btn-primary" id="btnSaveAdd">儲存標案</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

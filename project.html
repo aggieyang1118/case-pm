@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>標案詳情｜南屯區工程案件管理</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
+      <h1 id="pageTitle">標案詳情</h1>
+    </div>
+    <div class="topbar-actions">
+      <span class="sync-badge" id="syncBadge">— 模式偵測中 —</span>
+      <a class="btn btn-ghost" href="index.html">← 返回總覽</a>
+    </div>
+  </header>
+
+  <nav class="breadcrumb">
+    <a href="index.html">案件總覽</a><span class="sep">/</span><span class="current" id="crumbName">—</span>
+  </nav>
+
+  <!-- 圖框標題欄 -->
+  <section class="title-block" id="titleBlock">
+    <!-- injected -->
+  </section>
+
+  <!-- 頁籤 -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="net" role="tab">工程進度網圖</button>
+    <button class="tab-btn" data-tab="flow" role="tab">養工流程</button>
+    <button class="tab-btn" data-tab="todo" role="tab">本周待做事項</button>
+  </div>
+
+  <!-- 工程進度網圖 -->
+  <section class="tab-panel active" id="panel-net">
+    <div class="panel-head">
+      <div>
+        <h3>工程進度網圖</h3>
+        <p>左側為工項事務，右側為時間軸與現場照片 / 檔案，滑過照片可預覽放大，點擊可全螢幕檢視。</p>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增工項</button>
+    </div>
+    <div class="net-table" id="netTable"><!-- injected --></div>
+  </section>
+
+  <!-- 養工流程 -->
+  <section class="tab-panel" id="panel-flow">
+    <div class="panel-head">
+      <div>
+        <h3>養工流程</h3>
+        <p>從會勘、決標到竣工結算的完整流程紀錄。</p>
+      </div>
+    </div>
+    <div class="flow-list" id="flowList"><!-- injected --></div>
+  </section>
+
+  <!-- 本周待做事項 -->
+  <section class="tab-panel" id="panel-todo">
+    <div class="panel-head">
+      <div>
+        <h3>本周待做事項</h3>
+        <p>此標案本週需要處理的事項，完成後可勾選標記。</p>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddTodo">＋ 新增事項</button>
+    </div>
+    <div class="todo-list" id="todoList"><!-- injected --></div>
+  </section>
+
+  <div class="foot">南屯區公所工務課 · 工程案件管理系統 v1.0</div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose" aria-label="關閉">&times;</button>
+  <button class="lb-nav lb-prev" id="lbPrev" aria-label="上一張">&#8249;</button>
+  <img id="lbImage" src="" alt="">
+  <button class="lb-nav lb-next" id="lbNext" aria-label="下一張">&#8250;</button>
+  <div class="lb-caption" id="lbCaption"></div>
+</div>
+
+<!-- 新增工項 modal -->
+<div class="modal-backdrop" id="addTaskModal">
+  <div class="modal">
+    <h3>新增工項</h3>
+    <div class="field"><label>工項名稱</label><input type="text" id="t-name" placeholder="例：瀝青混凝土鋪設"></div>
+    <div class="field"><label>負責單位／人員</label><input type="text" id="t-owner" placeholder="例：順成營造 / 王工務"></div>
+    <div class="field-row">
+      <div class="field"><label>開始日期</label><input type="date" id="t-start"></div>
+      <div class="field"><label>結束日期</label><input type="date" id="t-end"></div>
+    </div>
+    <div class="field">
+      <label>狀態</label>
+      <select id="t-status">
+        <option value="pending">未開始</option>
+        <option value="progress">進行中</option>
+        <option value="done">已完成</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelTask">取消</button>
+      <button class="btn btn-primary" id="btnSaveTask">儲存工項</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增待辦 modal -->
+<div class="modal-backdrop" id="addTodoModal">
+  <div class="modal">
+    <h3>新增本周待辦</h3>
+    <div class="field"><label>事項內容</label><input type="text" id="d-text" placeholder="例：會勘路面刨除範圍"></div>
+    <div class="field-row">
+      <div class="field"><label>期限</label><input type="text" id="d-due" placeholder="例：07/15"></div>
+      <div class="field">
+        <label>優先度</label>
+        <select id="d-priority">
+          <option value="high">高</option>
+          <option value="mid">中</option>
+          <option value="low">低</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelTodo">取消</button>
+      <button class="btn btn-primary" id="btnSaveTodo">儲存事項</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/project.js"></script>
+</body>
+</html>
