@@ -75,7 +75,7 @@
         <div class="cat-bar" style="background:${meta.color}"></div>
         <div class="code-row">
           <span class="code">${escapeHtml(c.code)}</span>
-          <span class="cat-label" style="color:${meta.color}">${meta.label}</span>
+          <span class="cat-label" style="background:${meta.color}">${meta.label}</span>
         </div>
         <h3>${escapeHtml(c.name)}</h3>
         ${c.latestProgress ? `
