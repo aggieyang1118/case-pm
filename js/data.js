@@ -17,11 +17,11 @@
 const DB_KEY = 'epm_demo_db_v1';
 
 const CATEGORY_META = {
-  road:     { label: '路平專案', color: '#c9a227' },
-  drain:    { label: '排水工程', color: '#4f9d69' },
-  bridge:   { label: '橋梁維護', color: '#5b8fd9' },
-  facility: { label: '公共設施', color: '#b3341c' },
-  other:    { label: '其他案件', color: '#90a3bd' },
+  road:     { label: '路平專案', color: '#4a5fc1' },
+  drain:    { label: '排水工程', color: '#3e8574' },
+  bridge:   { label: '橋梁維護', color: '#6b6f76' },
+  facility: { label: '公共設施', color: '#a23e3e' },
+  other:    { label: '其他案件', color: '#9c8b6b' },
 };
 
 const STAGE_LABELS = ['決標', '開工', '施工中', '驗收', '結案'];
