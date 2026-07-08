@@ -23,6 +23,25 @@
 
   let kase = null;
   let allImages = []; // 全案照片集合，供 lightbox 上一張/下一張
+  let categoriesMap = {};
+
+  async function loadCategories(){
+    try{
+      categoriesMap = await DataStore.getCategories();
+    } catch(err){
+      console.error(err);
+      categoriesMap = DataStore.CATEGORY_META;
+    }
+  }
+
+  function populateCategorySelect(selectId, selected){
+    const sel = document.getElementById(selectId);
+    if(!sel) return;
+    sel.innerHTML = Object.keys(categoriesMap).map(key =>
+      `<option value="${key}">${escapeHtml(categoriesMap[key].label)}</option>`
+    ).join('') + `<option value="__new__">＋ 新增類別…</option>`;
+    if(selected && categoriesMap[selected]) sel.value = selected;
+  }
 
   async function boot(){
     updateSyncBadge();
@@ -48,7 +67,8 @@
     document.getElementById('crumbName').textContent = kase.name;
 
     initTabs();
-    await Promise.all([renderTitleBlock(), renderLevelMap(), renderFlow(), renderTodos()]);
+    await loadCategories();
+    await Promise.all([renderTitleBlock(), renderStageTimeline(), renderFlow(), renderTodos()]);
   }
 
   function showNotFound(msg){
@@ -60,9 +80,9 @@
       </div>`;
   }
 
-  // 根據關卡（工項）完成狀況，加上養工流程最後一步是否結案，自動判斷目前階段
+  // 根據階段（工項）完成狀況，加上養工流程最後一步是否結案，自動判斷目前階段
   function computeStage(tasks, flow){
-    if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何關卡
+    if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何階段
     const total = tasks.length;
     const doneCount = tasks.filter(t => t.status === 'done').length;
     const progressCount = tasks.filter(t => t.status === 'progress').length;
@@ -70,14 +90,21 @@
     if(doneCount === 0 && progressCount === 0) return 0; // 決標：都還沒開始
     if(doneCount === total){
       const lastFlow = flow && flow.length ? flow[flow.length - 1] : null;
-      if(lastFlow && lastFlow.status === 'done') return 4; // 結案：關卡全過 + 養工流程最後一步也完成
-      return 3; // 驗收：關卡全部過關，等待結算
+      if(lastFlow && lastFlow.status === 'done') return 4; // 結案：階段全過 + 養工流程最後一步也完成
+      return 3; // 驗收：階段全部完成，等待結算
     }
-    if(doneCount === 0 && progressCount >= 1) return 1; // 開工：第一關剛起步
-    return 2; // 施工中：有過關也有還沒過的
+    if(doneCount === 0 && progressCount >= 1) return 1; // 開工：第一階段剛起步
+    return 2; // 施工中：有完成也有還沒完成的
   }
 
   async function renderTitleBlock(){
+    const contract = kase.contractAmount || 0;
+    const actual = kase.executedAmount || 0;
+    const dispatched = kase.dispatchedAmount || 0;
+    const undispatched = kase.undispatchedAmount || 0;
+    const available = kase.availableAmount || 0;
+    const rate = contract ? Math.min(999, Math.round((actual / contract) * 100)) : 0;
+
     let autoStage = 0;
     try{
       const [tasks, flow] = await Promise.all([DataStore.getTasks(caseId), DataStore.getFlow(caseId)]);
@@ -102,20 +129,35 @@
     document.getElementById('titleBlock').innerHTML = `
       <div class="tb-name">
         <div class="eyebrow">${escapeHtml(kase.code)} · ${escapeHtml(kase.contractor)}</div>
-        <h2>${escapeHtml(kase.name)}</h2>
+        <div class="tb-name-row">
+          <h2>${escapeHtml(kase.name)}</h2>
+          ${window.isAdmin ? `<button class="btn btn-ghost btn-sm" id="btnEditCase">編輯標案</button>` : ''}
+        </div>
+      </div>
+      <div class="tb-stats-grid">
+        <div class="stat-box"><label>契約金額</label><div class="val">${money(contract)}</div></div>
+        <div class="stat-box"><label>實支金額</label><div class="val">${money(actual)}</div></div>
+        <div class="stat-box"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
+        <div class="stat-box"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
+        <div class="stat-box"><label>可派工金額</label><div class="val">${money(available)}</div></div>
+        <div class="stat-box highlight"><label>執行率</label><div class="val">${rate}%</div></div>
       </div>
       <div class="stage-track">${stageHtml}</div>
       ${window.isAdmin ? `
       <div class="stage-manual-row">
-        <p class="stage-note">${isManual ? '目前階段已手動設定，不會依關卡進度自動變動。' : '目前階段依關卡完成進度自動判斷。'}</p>
+        <p class="stage-note">${isManual ? '目前階段已手動設定，不會依進度自動變動。' : '目前階段依完成進度自動判斷。'}</p>
         ${isManual
           ? `<button class="stage-link-btn" id="btnAutoStage">恢復自動判斷</button>`
           : `<button class="stage-link-btn" id="btnManualStage">手動調整</button>`}
       </div>
       <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>` : `
-      <p class="stage-note" style="margin-top:12px;">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依關卡完成進度自動判斷。'}</p>`}
+      <p class="stage-note" style="margin-top:12px;">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依完成進度自動判斷。'}</p>`}
     `;
 
+    const btnEdit = document.getElementById('btnEditCase');
+    if(btnEdit){
+      btnEdit.addEventListener('click', openEditModal);
+    }
     const btnManual = document.getElementById('btnManualStage');
     if(btnManual){
       btnManual.addEventListener('click', () => {
@@ -155,6 +197,90 @@
     });
   }
 
+  function openEditModal(){
+    document.getElementById('e-name').value = kase.name || '';
+    document.getElementById('e-code').value = kase.code || '';
+    document.getElementById('e-contract').value = kase.contractAmount || 0;
+    document.getElementById('e-executed').value = kase.executedAmount || 0;
+    document.getElementById('e-dispatched').value = kase.dispatchedAmount || 0;
+    document.getElementById('e-expansion').value = kase.expansionAmount || 0;
+    document.getElementById('e-undispatched').value = kase.undispatchedAmount || 0;
+    document.getElementById('e-available').value = kase.availableAmount || 0;
+    document.getElementById('e-contractor').value = kase.contractor || '';
+    document.getElementById('e-progress').value = kase.latestProgress || '';
+    populateCategorySelect('e-category', kase.category);
+    document.getElementById('editNewCatRow').hidden = true;
+    document.getElementById('editCaseModal').classList.add('open');
+  }
+
+  const editModal = document.getElementById('editCaseModal');
+  const editCategorySelect = document.getElementById('e-category');
+  const editNewCatRow = document.getElementById('editNewCatRow');
+
+  document.getElementById('btnCancelEdit').addEventListener('click', () => editModal.classList.remove('open'));
+  editModal.addEventListener('click', e => { if(e.target === editModal) editModal.classList.remove('open'); });
+
+  editCategorySelect.addEventListener('change', () => {
+    editNewCatRow.hidden = editCategorySelect.value !== '__new__';
+  });
+
+  document.getElementById('btnEditCreateCat').addEventListener('click', async () => {
+    const input = document.getElementById('e-new-cat-name');
+    const label = input.value.trim();
+    if(!label){ alert('請輸入新分類的名稱'); return; }
+    const btn = document.getElementById('btnEditCreateCat');
+    btn.disabled = true; btn.textContent = '新增中…';
+    try{
+      const existingCount = Object.keys(categoriesMap).length;
+      const color = DataStore.CATEGORY_COLOR_ROTATION[existingCount % DataStore.CATEGORY_COLOR_ROTATION.length];
+      const created = await DataStore.addCategory({ label, color });
+      await loadCategories();
+      populateCategorySelect('e-category', created.key);
+      editNewCatRow.hidden = true;
+      input.value = '';
+    } catch(err){
+      console.error(err);
+      alert('新增分類失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '新增';
+    }
+  });
+
+  document.getElementById('btnSaveEdit').addEventListener('click', async () => {
+    const name = document.getElementById('e-name').value.trim();
+    if(!name){ alert('請輸入標案名稱'); return; }
+    if(editCategorySelect.value === '__new__'){ alert('請先按「新增」完成新分類的建立，或改選一個現有分類'); return; }
+    const btn = document.getElementById('btnSaveEdit');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      const patch = {
+        name,
+        code: document.getElementById('e-code').value.trim() || kase.code,
+        category: editCategorySelect.value,
+        contractAmount: Number(document.getElementById('e-contract').value) || 0,
+        executedAmount: Number(document.getElementById('e-executed').value) || 0,
+        dispatchedAmount: Number(document.getElementById('e-dispatched').value) || 0,
+        expansionAmount: Number(document.getElementById('e-expansion').value) || 0,
+        undispatchedAmount: Number(document.getElementById('e-undispatched').value) || 0,
+        availableAmount: Number(document.getElementById('e-available').value) || 0,
+        contractor: document.getElementById('e-contractor').value.trim() || '尚未決標',
+        latestProgress: document.getElementById('e-progress').value.trim(),
+      };
+      await DataStore.updateCase(caseId, patch);
+      Object.assign(kase, patch);
+      editModal.classList.remove('open');
+      document.getElementById('pageTitle').textContent = kase.name;
+      document.getElementById('crumbName').textContent = kase.name;
+      document.title = kase.name + '｜工程案件管理';
+      await renderTitleBlock();
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存變更';
+    }
+  });
+
   function initTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -173,24 +299,19 @@
     return d;
   }
 
-  let activePopup = null;
+  const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
 
-  function closePopup(){
-    if(activePopup){ activePopup.remove(); activePopup = null; }
-  }
-
-  async function renderLevelMap(){
-    const scrollWrap = document.querySelector('.level-map-scroll');
-    const map = document.getElementById('levelMap');
-    map.innerHTML = `<svg class="level-svg" id="levelSvg"></svg>`;
-    closePopup();
+  // ---------------- 工程進度：垂直時間軸 ----------------
+  async function renderStageTimeline(){
+    const container = document.getElementById('stageTimeline');
+    container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
 
     let tasks;
     try{
       tasks = await DataStore.getTasks(caseId);
     } catch(err){
       console.error(err);
-      map.innerHTML = `<div class="empty-state"><h4>工項讀取失敗</h4></div>`;
+      container.innerHTML = `<div class="empty-state"><h4>階段讀取失敗</h4></div>`;
       return;
     }
 
@@ -198,172 +319,91 @@
     tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
 
     if(tasks.length === 0){
-      map.innerHTML = `<div class="empty-state"><h4>尚未建立關卡</h4><p>點右上角「新增關卡」開始建立進度地圖。</p></div>`;
+      container.innerHTML = `<div class="empty-state"><h4>尚未建立階段</h4><p>點右上角「新增階段」開始記錄工程進度。</p></div>`;
       return;
     }
 
-    // ---- 計算每個關卡（節點）在地圖上的座標，排成蜿蜒的路徑 ----
-    const spacingX = 190;
-    const amplitude = 52;
-    const paddingX = 90;
-    const baselineY = amplitude + 70;
-    const mapHeight = baselineY + amplitude + 60;
-    const mapWidth = Math.max(scrollWrap.clientWidth, paddingX * 2 + spacingX * (tasks.length - 1));
+    container.innerHTML = tasks.map(t => {
+      const attachHtml = (t.attachments||[]).map(a => {
+        if(a.type === 'image'){
+          const imgIndex = allImages.findIndex(x => x.url === a.url);
+          return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
+        }
+        return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
+      }).join('');
 
-    const points = tasks.map((t, i) => {
-      const x = paddingX + i * spacingX;
-      const y = baselineY + (i % 2 === 0 ? -amplitude : amplitude);
-      return { x, y, task: t };
-    });
-
-    map.style.width = mapWidth + 'px';
-    map.style.height = mapHeight + 'px';
-
-    // ---- 畫路徑（底層淡虛線＝全程，上層實線＝已完成／進行中的路段）----
-    function buildPath(pts){
-      if(pts.length < 2) return '';
-      let d = `M ${pts[0].x} ${pts[0].y}`;
-      for(let i=0;i<pts.length-1;i++){
-        const p1 = pts[i], p2 = pts[i+1];
-        const midX = p1.x + (p2.x - p1.x)/2;
-        d += ` C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
-      }
-      return d;
-    }
-
-    let activeEnd = 0;
-    for(let i=0;i<tasks.length;i++){
-      if(tasks[i].status === 'done' || tasks[i].status === 'progress') activeEnd = i;
-    }
-
-    const svg = document.getElementById('levelSvg');
-    svg.setAttribute('viewBox', `0 0 ${mapWidth} ${mapHeight}`);
-    svg.setAttribute('width', mapWidth);
-    svg.setAttribute('height', mapHeight);
-    svg.innerHTML = `
-      <path d="${buildPath(points)}" fill="none" stroke="#c7d0d6" stroke-width="4" stroke-linecap="round" stroke-dasharray="1,12"></path>
-      <path d="${buildPath(points.slice(0, activeEnd+1))}" fill="none" stroke="#3d7ea6" stroke-width="4" stroke-linecap="round"></path>
-    `;
-
-    // ---- 節點 ----
-    const statusLabel = { done:'已完成', progress:'進行中', pending:'未開始' };
-    const nodesHtml = points.map((p, i) => {
-      const t = p.task;
-      const cls = t.status === 'done' ? 'status-done' : (t.status === 'progress' ? 'status-progress' : 'status-pending');
-      const icon = t.status === 'done' ? '✓' : (i+1);
       return `
-      <div class="level-node" data-index="${i}" style="left:${p.x}px; top:${p.y}px;" tabindex="0" role="button" aria-label="${escapeHtml(t.name)}">
-        <div class="node-circle ${cls}">${icon}</div>
-        <div class="node-label">${escapeHtml(t.name)}</div>
-        <div class="node-sub">${fmtDate(t.start)} — ${fmtDate(t.end)}</div>
+      <div class="stage-item" data-task-id="${t.id}">
+        <div class="stage-rail">
+          <div class="stage-rail-node ${t.status}">${t.status==='done' ? '✓' : ''}</div>
+          <div class="stage-rail-line"></div>
+        </div>
+        <div class="stage-card">
+          <div class="stage-card-head">
+            <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+            <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+          </div>
+          <h4>${escapeHtml(t.name)}</h4>
+          ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+          ${t.note ? `<p class="stage-note-text">${escapeHtml(t.note)}</p>` : ''}
+          ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+          ${window.isAdmin ? `
+          <div class="stage-controls">
+            <div class="lp-status-row">
+              <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+              <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+              <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+            </div>
+            <label class="btn btn-ghost btn-sm stage-upload">
+              ＋ 新增照片／檔案
+              <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+            </label>
+          </div>` : ''}
+        </div>
       </div>`;
     }).join('');
-    map.insertAdjacentHTML('beforeend', nodesHtml);
 
-    map.querySelectorAll('.level-node').forEach(el => {
-      const openThis = () => showPopup(points[Number(el.dataset.index)], el);
-      el.addEventListener('click', openThis);
-      el.addEventListener('keydown', e => { if(e.key === 'Enter') openThis(); });
+    container.querySelectorAll('.thumb[data-img-index]').forEach(el => {
+      el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
     });
 
-    // 預設把地圖捲到最新進度的位置
-    requestAnimationFrame(() => {
-      const targetX = points[activeEnd] ? points[activeEnd].x : 0;
-      scrollWrap.scrollLeft = Math.max(0, targetX - scrollWrap.clientWidth/2);
+    container.querySelectorAll('.stage-item').forEach(item => {
+      const taskId = item.dataset.taskId;
+
+      item.querySelectorAll('.lp-status-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const newStatus = btn.dataset.status;
+          const statusRow = btn.closest('.lp-status-row');
+          statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
+          try{
+            await DataStore.updateTaskStatus(caseId, taskId, newStatus);
+            await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+          } catch(err){
+            console.error(err);
+            alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
+            statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = false);
+          }
+        });
+      });
+
+      const uploadInput = item.querySelector('input[data-upload-for]');
+      if(uploadInput){
+        uploadInput.addEventListener('change', async e => {
+          const file = e.target.files[0];
+          if(!file) return;
+          const label = item.querySelector('.stage-upload');
+          label.style.opacity = '0.5';
+          try{
+            await DataStore.uploadAttachment(caseId, taskId, file);
+            await renderStageTimeline();
+          } catch(err){
+            console.error(err);
+            alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
+            label.style.opacity = '1';
+          }
+        });
+      }
     });
-  }
-
-  function showPopup(point, nodeEl){
-    closePopup();
-    const t = point.task;
-    const map = document.getElementById('levelMap');
-    const statusLabel = { done:'已完成', progress:'進行中', pending:'未開始' };
-    const firstImage = (t.attachments||[]).find(a => a.type === 'image');
-    const otherFiles = (t.attachments||[]).filter(a => a !== firstImage);
-
-    const popup = document.createElement('div');
-    popup.className = 'level-popup';
-    const popupHalfWidth = 125;
-    const mapWidth = document.getElementById('levelMap').offsetWidth;
-    const clampedX = Math.min(Math.max(point.x, popupHalfWidth + 10), mapWidth - popupHalfWidth - 10);
-    const above = point.y > 70 + 52; // 節點在下方時，卡片顯示在上方，反之亦然
-    popup.style.left = clampedX + 'px';
-    if(above){ popup.style.bottom = (document.getElementById('levelMap').offsetHeight - point.y + 44) + 'px'; }
-    else { popup.style.top = (point.y + 44) + 'px'; }
-
-    popup.innerHTML = `
-      <button class="lp-close" aria-label="關閉">&times;</button>
-      <span class="status-pill ${t.status}">${statusLabel[t.status]||'未開始'}</span>
-      <h4>${escapeHtml(t.name)}</h4>
-      <div class="lp-date">${fmtDate(t.start)} － ${fmtDate(t.end)}　·　${escapeHtml(t.owner||'')}</div>
-      ${t.note ? `<div class="lp-note">${escapeHtml(t.note)}</div>` : ''}
-      ${firstImage ? `<div class="lp-image" data-img-url="${firstImage.url}"><img src="${firstImage.url}" alt="${escapeHtml(firstImage.name||'')}"></div>` : ''}
-      ${otherFiles.length ? `<div class="lp-attach-row">${otherFiles.map(a => a.type==='image'
-          ? `<div class="thumb" data-img-url="${a.url}"><img src="${a.url}" alt=""></div>`
-          : `<div class="thumb filetype">📄<br>${escapeHtml((a.name||'檔案').slice(0,6))}</div>`
-        ).join('')}</div>` : ''}
-      ${window.isAdmin ? `
-      <div class="lp-status-row">
-        <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-        <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-        <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
-      </div>
-      <label class="btn btn-ghost btn-sm lp-upload">
-        ＋ 新增照片／檔案
-        <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-      </label>` : ''}
-    `;
-    map.appendChild(popup);
-    activePopup = popup;
-
-    popup.querySelector('.lp-close').addEventListener('click', closePopup);
-    popup.querySelectorAll('.lp-status-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const newStatus = btn.dataset.status;
-        if(newStatus === t.status) return;
-        popup.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
-        try{
-          await DataStore.updateTaskStatus(caseId, t.id, newStatus);
-          await Promise.all([renderLevelMap(), renderTitleBlock()]);
-        } catch(err){
-          console.error(err);
-          alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
-          popup.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = false);
-        }
-      });
-    });
-    popup.querySelectorAll('[data-img-url]').forEach(el => {
-      el.addEventListener('click', () => {
-        const idx = allImages.findIndex(x => x.url === el.dataset.imgUrl);
-        if(idx > -1) openLightbox(idx);
-      });
-    });
-    const uploadInput = popup.querySelector('input[data-upload-for]');
-    if(uploadInput){
-      uploadInput.addEventListener('change', async e => {
-        const file = e.target.files[0];
-        if(!file) return;
-        const label = popup.querySelector('.lp-upload');
-        label.style.opacity = '0.5';
-        try{
-          await DataStore.uploadAttachment(caseId, t.id, file);
-          await renderLevelMap();
-        } catch(err){
-          console.error(err);
-          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
-          label.style.opacity = '1';
-        }
-      });
-    }
-
-    setTimeout(() => {
-      document.addEventListener('click', function onOutside(e){
-        if(activePopup && !activePopup.contains(e.target) && !nodeEl.contains(e.target)){
-          closePopup();
-          document.removeEventListener('click', onOutside);
-        }
-      });
-    }, 0);
   }
 
   const lb = document.getElementById('lightbox');
@@ -463,7 +503,7 @@
   taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
   document.getElementById('btnSaveTask').addEventListener('click', async () => {
     const name = document.getElementById('t-name').value.trim();
-    if(!name){ alert('請輸入工項名稱'); return; }
+    if(!name){ alert('請輸入階段名稱'); return; }
     const btn = document.getElementById('btnSaveTask');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
@@ -476,12 +516,12 @@
         status: document.getElementById('t-status').value,
       });
       taskModal.classList.remove('open');
-      await Promise.all([renderLevelMap(), renderTitleBlock()]);
+      await Promise.all([renderStageTimeline(), renderTitleBlock()]);
     } catch(err){
       console.error(err);
       alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
     } finally{
-      btn.disabled = false; btn.textContent = '儲存工項';
+      btn.disabled = false; btn.textContent = '儲存階段';
     }
   });
 
