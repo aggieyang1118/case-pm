@@ -143,6 +143,35 @@
   </div>
 </div>
 
+<!-- 編輯階段 modal -->
+<div class="modal-backdrop" id="editTaskModal">
+  <div class="modal">
+    <h3>編輯階段</h3>
+    <div class="field"><label>階段名稱</label><input type="text" id="et-name" placeholder="例：開工前置作業"></div>
+    <div class="field"><label>負責單位／人員</label><input type="text" id="et-owner" placeholder="例：順成營造 / 王工務"></div>
+    <div class="field">
+      <label>備註（每行一項，會自動變成條列）</label>
+      <textarea id="et-note" placeholder="開工報告已完成&#10;三書送審已完成&#10;現場放樣確認完畢" rows="4"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>開始日期</label><input type="date" id="et-start"></div>
+      <div class="field"><label>結束日期</label><input type="date" id="et-end"></div>
+    </div>
+    <div class="field">
+      <label>狀態</label>
+      <select id="et-status">
+        <option value="pending">未開始</option>
+        <option value="progress">進行中</option>
+        <option value="done">已完成</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelEditTask">取消</button>
+      <button class="btn btn-primary" id="btnSaveEditTask">儲存變更</button>
+    </div>
+  </div>
+</div>
+
 <!-- 新增階段 modal -->
 <div class="modal-backdrop" id="addTaskModal">
   <div class="modal">

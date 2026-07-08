@@ -230,6 +230,12 @@ const LocalBackend = {
     if(task){ task.status = status; saveDB(db); }
     return task;
   },
+  async updateTask(caseId, taskId, patch){
+    const db = loadDB();
+    const task = (db.tasks[caseId]||[]).find(t=>t.id===taskId);
+    if(task){ Object.assign(task, patch); saveDB(db); }
+    return task;
+  },
   async getFlow(caseId){ return loadDB().flow[caseId] || []; },
   async getTodos(caseId){ return loadDB().todos[caseId] || []; },
   async toggleTodo(caseId, todoId){
@@ -338,6 +344,12 @@ const FirebaseBackend = {
     const doc = await ref.get();
     return { id: doc.id, ...doc.data() };
   },
+  async updateTask(caseId, taskId, patch){
+    const ref = window.db.collection('cases').doc(caseId).collection('tasks').doc(taskId);
+    await ref.update(patch);
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
   async getFlow(caseId){
     const snap = await window.db.collection('cases').doc(caseId).collection('flow').orderBy('order').get();
     return snap.docs.map(d => d.data());
@@ -385,6 +397,7 @@ const DataStore = {
   addTask(caseId, task){ return backend().addTask(caseId, task); },
   addAttachment(caseId, taskId, attachment){ return backend().addAttachment(caseId, taskId, attachment); },
   updateTaskStatus(caseId, taskId, status){ return backend().updateTaskStatus(caseId, taskId, status); },
+  updateTask(caseId, taskId, patch){ return backend().updateTask(caseId, taskId, patch); },
   uploadAttachment(caseId, taskId, file){ return backend().uploadAttachment(caseId, taskId, file); },
   getFlow(caseId){ return backend().getFlow(caseId); },
   getTodos(caseId){ return backend().getTodos(caseId); },

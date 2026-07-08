@@ -23,6 +23,7 @@
 
   let kase = null;
   let allImages = []; // 全案照片集合，供 lightbox 上一張/下一張
+  let currentTasks = []; // 目前的階段清單，供編輯 modal 查找用
 
   async function boot(){
     updateSyncBadge();
@@ -274,6 +275,7 @@
 
     allImages = [];
     tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
+    currentTasks = tasks;
 
     if(tasks.length === 0){
       container.innerHTML = `<div class="empty-state"><h4>尚未建立階段</h4><p>點右上角「新增階段」開始記錄工程進度。</p></div>`;
@@ -315,10 +317,13 @@
                 <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
                 <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
               </div>
-              <label class="btn btn-ghost btn-sm stage-upload">
-                ＋ 新增照片／檔案
-                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-              </label>
+              <div class="stage-controls-row">
+                <label class="btn btn-ghost btn-sm stage-upload">
+                  ＋ 新增照片／檔案
+                  <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+                </label>
+                <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯階段</button>
+              </div>
             </div>` : ''}
           </div>
         </div>
@@ -327,6 +332,10 @@
 
     container.querySelectorAll('.thumb[data-img-index]').forEach(el => {
       el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
+    });
+
+    container.querySelectorAll('.stage-edit-btn').forEach(el => {
+      el.addEventListener('click', () => openEditTaskModal(el.dataset.editTask));
     });
 
     container.querySelectorAll('.stage-card').forEach(item => {
@@ -458,6 +467,48 @@
       });
     });
   }
+
+  function openEditTaskModal(taskId){
+    const t = currentTasks.find(x => x.id === taskId);
+    if(!t) return;
+    document.getElementById('et-name').value = t.name || '';
+    document.getElementById('et-owner').value = t.owner || '';
+    document.getElementById('et-note').value = t.note || '';
+    document.getElementById('et-start').value = t.start || '';
+    document.getElementById('et-end').value = t.end || '';
+    document.getElementById('et-status').value = t.status || 'pending';
+    editTaskModal.dataset.taskId = taskId;
+    editTaskModal.classList.add('open');
+  }
+
+  const editTaskModal = document.getElementById('editTaskModal');
+  document.getElementById('btnCancelEditTask').addEventListener('click', () => editTaskModal.classList.remove('open'));
+  editTaskModal.addEventListener('click', e => { if(e.target === editTaskModal) editTaskModal.classList.remove('open'); });
+
+  document.getElementById('btnSaveEditTask').addEventListener('click', async () => {
+    const name = document.getElementById('et-name').value.trim();
+    if(!name){ alert('請輸入階段名稱'); return; }
+    const taskId = editTaskModal.dataset.taskId;
+    const btn = document.getElementById('btnSaveEditTask');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      await DataStore.updateTask(caseId, taskId, {
+        name,
+        owner: document.getElementById('et-owner').value.trim(),
+        note: document.getElementById('et-note').value.trim(),
+        start: document.getElementById('et-start').value,
+        end: document.getElementById('et-end').value,
+        status: document.getElementById('et-status').value,
+      });
+      editTaskModal.classList.remove('open');
+      await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存變更';
+    }
+  });
 
   const taskModal = document.getElementById('addTaskModal');
   document.getElementById('btnAddTask').addEventListener('click', ()=> taskModal.classList.add('open'));
