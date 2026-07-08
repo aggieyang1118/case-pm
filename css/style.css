@@ -1,8 +1,8 @@
 /* ============================================================
-   工程案件管理系統 — 視覺系統（精緻極簡版）
-   概念：時尚編輯誌的版面邏輯——柔霧白底、石墨色文字、
-   單一自信的靛藍作為品牌色，用留白與細微陰影界定層次，
-   而不是大量邊框與飽和色塊。長時間閱讀也不刺眼。
+   工程案件管理系統 — 視覺系統
+   概念：柔霧藍白底、石墨色文字，主色為沉靜的天空藍，
+   點綴以馬卡龍珊瑚橘與鼠尾草綠，適合長時間閱讀的工作介面。
+   用留白與柔和陰影界定層次，而非大量邊框與飽和色塊。
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
@@ -171,16 +171,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .marquee-track li.urgent .tag{ color: var(--brick); border-color: rgba(162,62,62,0.3); }
 @keyframes scroll-left{ from{ transform: translateX(0);} to{ transform: translateX(-50%);} }
 
-/* ---------- filter row ---------- */
-.filter-row{ display:flex; gap:9px; align-items:center; margin: 4px 0 28px; flex-wrap:wrap; }
-.chip{
-  font-family: var(--font-body); font-size: 12.5px; padding: 8px 16px; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--ink-soft); background: var(--surface);
-  transition: all .15s var(--ease);
-}
-.chip:hover{ color: var(--ink); border-color: rgba(20,20,22,0.18); }
-.chip.active{ background: var(--accent); border-color: var(--accent); color:#fbfdfe; font-weight:600; }
-
 /* ---------- card grid ---------- */
 .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(304px,1fr)); gap: 20px; }
 
@@ -197,15 +187,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
 }
-.case-card .cat-bar{
-  position:absolute; left:0; top:20px; bottom:20px; width:3px; border-radius: 0 3px 3px 0;
-}
 .case-card .code-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
 .case-card .code{ font-family: var(--font-num); font-size: 11.5px; color: var(--ink-faint); letter-spacing:.03em; }
-.case-card .cat-label{
-  font-family: var(--font-num); font-weight:600; font-size: 10.5px; padding: 3px 10px; border-radius: 999px;
-  color:#fff;
-}
 .case-card h3{
   font-family: var(--font-display); font-size: 18px; line-height:1.5; margin: 0 0 15px;
   font-weight:700; color: var(--ink);
@@ -221,17 +204,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   color: var(--ink-faint); margin-bottom: 4px; text-transform: uppercase;
 }
 .latest-progress p{ margin:0; font-size: 13px; color: var(--ink); line-height:1.55; }
-
-.case-card .stats{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 18px; }
-.case-card .stat label{ display:block; font-size: 11px; color: var(--ink-faint); margin-bottom:3px; }
-.case-card .stat .val{ font-family: var(--font-num); font-size: 15px; font-weight:600; color: var(--ink); }
-.case-card .progress-wrap{ margin-top: 4px; }
-.case-card .progress-head{
-  display:flex; justify-content:space-between; font-size: 11.5px; color: var(--ink-soft); margin-bottom:7px;
-  font-family: var(--font-num);
-}
-.progress-track{ height: 5px; border-radius: 4px; background: var(--surface-alt); overflow:hidden; }
-.progress-fill{ height:100%; border-radius:4px; background: var(--accent); }
 
 /* ---------- empty state ---------- */
 .empty-state{
@@ -320,7 +292,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .panel-head h3{ font-family: var(--font-display); font-size: 18px; margin:0; color: var(--ink); font-weight:700; }
 .panel-head p{ margin:3px 0 0; color: var(--ink-soft); font-size: 13px; }
 
-/* status pill (reused inside level-map popup) */
+/* status pill (used in stage cards, todo items) */
 .status-pill{
   align-self:flex-start; font-family: var(--font-num); font-weight:600; font-size: 10.5px; padding:3px 10px; border-radius:999px;
   margin-top:2px; color:#fff; display:inline-block;
@@ -329,7 +301,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .status-pill.progress{ background: var(--warn); }
 .status-pill.pending{ background: var(--ink-faint); }
 
-/* attachment thumbnails (reused in popup) */
+/* attachment thumbnails (used in stage cards) */
 .thumb{
   width: 52px; height: 52px; border-radius: var(--radius-s); overflow:hidden; border:1px solid var(--border);
   position:relative; cursor:zoom-in; transition: transform .18s var(--ease), z-index 0s, box-shadow .18s var(--ease); flex:none;
@@ -339,28 +311,42 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .thumb:hover{ transform: scale(2.2); z-index: 40; box-shadow: var(--shadow-lg); }
 .thumb.filetype{ display:flex; align-items:center; justify-content:center; font-family: var(--font-body); font-size:9.5px; color: var(--ink-soft); text-align:center; padding:4px; }
 
-/* ---------- 工程進度：流程圖（卡片＋箭頭）---------- */
-.stage-timeline{ display:flex; flex-direction:column; align-items:stretch; max-width: 640px; margin: 0 auto; }
-
-.flow-connector{
-  align-self:center; display:flex; align-items:center; justify-content:center;
-  color: var(--border); height: 34px;
+/* ---------- 工程進度：蜿蜒流程路徑 ---------- */
+.stage-timeline{ position:relative; padding: 6px 0; }
+.stage-timeline::before{
+  content:''; position:absolute; left:50%; top:6px; bottom:6px; width:3px;
+  background: linear-gradient(var(--border), var(--border)); transform: translateX(-50%); border-radius:3px;
 }
-.flow-connector.active{ color: var(--accent); }
+
+.ptl-item{ position:relative; display:flex; align-items:flex-start; gap:22px; margin-bottom:30px; }
+.ptl-item:last-child{ margin-bottom:0; }
+.ptl-item.right{ flex-direction:row; }
+.ptl-item.left{ flex-direction:row-reverse; }
+
+.ptl-node-wrap{ flex:none; width:56px; display:flex; justify-content:center; position:relative; z-index:2; }
+.ptl-node{
+  width:52px; height:52px; border-radius:50%; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-family: var(--font-num); font-weight:700; font-size:17px; color:#fff;
+  background: var(--node-color); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--border-soft), var(--shadow-sm);
+}
+.ptl-node.status-pending{ background: var(--surface-alt); color: var(--ink-faint); box-shadow: 0 0 0 2px var(--border), 0 0 0 3px var(--surface); }
+.ptl-node.status-progress{ box-shadow: 0 0 0 2px var(--border-soft), 0 0 0 6px rgba(0,0,0,0.08); }
+
+.ptl-content{ flex:1; min-width:0; }
 
 .stage-card{
-  background: var(--surface); border:1px solid var(--border-soft); border-left: 4px solid var(--ink-faint);
-  border-radius: var(--radius-l); padding: 18px 22px; box-shadow: var(--shadow-sm);
+  background: var(--surface); border:1px solid var(--border-soft); border-radius: var(--radius-l);
+  padding: 16px 20px; box-shadow: var(--shadow-sm);
 }
-.stage-card.status-done{ border-left-color: var(--ok); }
-.stage-card.status-progress{ border-left-color: var(--warn); }
-.stage-card.status-pending{ border-left-color: var(--ink-faint); }
-
 .stage-card-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
 .stage-dates{ font-family: var(--font-num); font-size:12px; color: var(--ink-faint); }
 .stage-card h4{ font-family: var(--font-display); font-size:16px; margin:0 0 4px; color: var(--ink); font-weight:700; }
 .stage-owner{ font-size:12.5px; color: var(--ink-soft); margin-bottom:8px; }
 .stage-note-text{ font-size:13px; color: var(--ink-soft); line-height:1.6; margin:0 0 12px; }
+.stage-note-list{ margin: 0 0 12px; padding-left: 18px; }
+.stage-note-list li{ font-size:13px; color: var(--ink-soft); line-height:1.75; }
 .stage-attach{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 4px; }
 .stage-controls{ margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft); }
 .stage-upload{ width:100%; text-align:center; display:block; box-shadow:none; margin-top:8px; }
@@ -374,6 +360,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .lp-status-btn:hover{ border-color: var(--accent); color: var(--accent); }
 .lp-status-btn.active{ background: var(--ink); border-color: var(--ink); color:#fff; }
 .lp-status-btn:disabled{ opacity:.5; }
+
+@media (max-width: 760px){
+  .stage-timeline::before{ left: 26px; }
+  .ptl-item, .ptl-item.left, .ptl-item.right{ flex-direction:row; gap:14px; }
+  .ptl-node-wrap{ width:52px; }
+  .ptl-node{ width:44px; height:44px; font-size:15px; }
+}
 
 /* 養工流程 stepper */
 .flow-list{ display:flex; flex-direction:column; }
@@ -441,11 +434,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .field input::placeholder, .field textarea::placeholder{ color: var(--ink-faint); }
 .field textarea{ min-height: 70px; resize: vertical; }
 .field-row{ display:flex; gap:12px; }
-.new-cat-row{ display:flex; gap:8px; margin-top:8px; }
-.new-cat-row input{
-  flex:1; background: var(--bg); border:1px solid var(--border); border-radius: var(--radius-s);
-  padding: 8px 10px; color: var(--ink); font-family: var(--font-body); font-size:13px;
-}
 .field-row .field{ flex:1; }
 .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top: 22px; }
 
@@ -497,5 +485,4 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 760px){
   .shell{ padding: 0 16px 60px; }
   .title-block{ padding: 20px; }
-  .tb-stats{ gap: 18px; }
 }

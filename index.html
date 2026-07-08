@@ -35,11 +35,6 @@
     </div>
   </div>
 
-  <!-- 分類篩選 -->
-  <div class="filter-row" id="filterRow">
-    <button class="chip active" data-cat="all">全部案件</button>
-  </div>
-
   <!-- 案件卡片 -->
   <section class="grid" id="caseGrid">
     <!-- injected -->
@@ -56,19 +51,9 @@
       <label>標案名稱</label>
       <input type="text" id="f-name" placeholder="例：大墩十九街人行道改善工程">
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label>案號</label>
-        <input type="text" id="f-code" placeholder="NT-2026-0XX">
-      </div>
-      <div class="field">
-        <label>案件類別</label>
-        <select id="f-category"><!-- 選項由 JS 動態產生 --></select>
-        <div class="new-cat-row" id="newCatRow" hidden>
-          <input type="text" id="f-new-cat-name" placeholder="新分類名稱，例如：機電工程">
-          <button type="button" class="btn btn-sm" id="btnCreateCat">新增</button>
-        </div>
-      </div>
+    <div class="field">
+      <label>案號</label>
+      <input type="text" id="f-code" placeholder="NT-2026-0XX">
     </div>
     <div class="field-row">
       <div class="field">

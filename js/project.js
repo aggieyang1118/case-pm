@@ -23,25 +23,6 @@
 
   let kase = null;
   let allImages = []; // 全案照片集合，供 lightbox 上一張/下一張
-  let categoriesMap = {};
-
-  async function loadCategories(){
-    try{
-      categoriesMap = await DataStore.getCategories();
-    } catch(err){
-      console.error(err);
-      categoriesMap = DataStore.CATEGORY_META;
-    }
-  }
-
-  function populateCategorySelect(selectId, selected){
-    const sel = document.getElementById(selectId);
-    if(!sel) return;
-    sel.innerHTML = Object.keys(categoriesMap).map(key =>
-      `<option value="${key}">${escapeHtml(categoriesMap[key].label)}</option>`
-    ).join('') + `<option value="__new__">＋ 新增類別…</option>`;
-    if(selected && categoriesMap[selected]) sel.value = selected;
-  }
 
   async function boot(){
     updateSyncBadge();
@@ -67,7 +48,6 @@
     document.getElementById('crumbName').textContent = kase.name;
 
     initTabs();
-    await loadCategories();
     await Promise.all([renderTitleBlock(), renderStageTimeline(), renderFlow(), renderTodos()]);
   }
 
@@ -208,55 +188,23 @@
     document.getElementById('e-available').value = kase.availableAmount || 0;
     document.getElementById('e-contractor').value = kase.contractor || '';
     document.getElementById('e-progress').value = kase.latestProgress || '';
-    populateCategorySelect('e-category', kase.category);
-    document.getElementById('editNewCatRow').hidden = true;
     document.getElementById('editCaseModal').classList.add('open');
   }
 
   const editModal = document.getElementById('editCaseModal');
-  const editCategorySelect = document.getElementById('e-category');
-  const editNewCatRow = document.getElementById('editNewCatRow');
 
   document.getElementById('btnCancelEdit').addEventListener('click', () => editModal.classList.remove('open'));
   editModal.addEventListener('click', e => { if(e.target === editModal) editModal.classList.remove('open'); });
 
-  editCategorySelect.addEventListener('change', () => {
-    editNewCatRow.hidden = editCategorySelect.value !== '__new__';
-  });
-
-  document.getElementById('btnEditCreateCat').addEventListener('click', async () => {
-    const input = document.getElementById('e-new-cat-name');
-    const label = input.value.trim();
-    if(!label){ alert('請輸入新分類的名稱'); return; }
-    const btn = document.getElementById('btnEditCreateCat');
-    btn.disabled = true; btn.textContent = '新增中…';
-    try{
-      const existingCount = Object.keys(categoriesMap).length;
-      const color = DataStore.CATEGORY_COLOR_ROTATION[existingCount % DataStore.CATEGORY_COLOR_ROTATION.length];
-      const created = await DataStore.addCategory({ label, color });
-      await loadCategories();
-      populateCategorySelect('e-category', created.key);
-      editNewCatRow.hidden = true;
-      input.value = '';
-    } catch(err){
-      console.error(err);
-      alert('新增分類失敗，請確認網路連線或 Firebase 設定後再試一次。');
-    } finally{
-      btn.disabled = false; btn.textContent = '新增';
-    }
-  });
-
   document.getElementById('btnSaveEdit').addEventListener('click', async () => {
     const name = document.getElementById('e-name').value.trim();
     if(!name){ alert('請輸入標案名稱'); return; }
-    if(editCategorySelect.value === '__new__'){ alert('請先按「新增」完成新分類的建立，或改選一個現有分類'); return; }
     const btn = document.getElementById('btnSaveEdit');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
       const patch = {
         name,
         code: document.getElementById('e-code').value.trim() || kase.code,
-        category: editCategorySelect.value,
         contractAmount: Number(document.getElementById('e-contract').value) || 0,
         executedAmount: Number(document.getElementById('e-executed').value) || 0,
         dispatchedAmount: Number(document.getElementById('e-dispatched').value) || 0,
@@ -300,8 +248,17 @@
   }
 
   const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
+  const NODE_COLORS = ['#c17b5f', '#c99a4a', '#6a9080', '#3d7ea6', '#8087b0', '#a2685f', '#5b8fb0'];
 
-  // ---------------- 工程進度：流程圖（卡片＋箭頭）----------------
+  function renderNoteList(note){
+    if(!note) return '';
+    const lines = note.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    if(lines.length === 0) return '';
+    if(lines.length === 1) return `<p class="stage-note-text">${escapeHtml(lines[0])}</p>`;
+    return `<ul class="stage-note-list">${lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
+  }
+
+  // ---------------- 工程進度：蜿蜒流程路徑 ----------------
   async function renderStageTimeline(){
     const container = document.getElementById('stageTimeline');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
@@ -332,39 +289,40 @@
         return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
       }).join('');
 
-      const isLast = i === tasks.length - 1;
-      const connectorActive = t.status === 'done';
+      const side = i % 2 === 0 ? 'right' : 'left';
+      const nodeColor = NODE_COLORS[i % NODE_COLORS.length];
+      const nodeInner = t.status === 'done' ? '✓' : (t.status === 'progress' ? '●' : (i+1));
 
       return `
-      <div class="stage-card status-${t.status}" data-task-id="${t.id}">
-        <div class="stage-card-head">
-          <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
-          <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+      <div class="ptl-item ${side}" data-task-id="${t.id}">
+        <div class="ptl-node-wrap">
+          <div class="ptl-node status-${t.status}" style="--node-color:${nodeColor}">${nodeInner}</div>
         </div>
-        <h4>${escapeHtml(t.name)}</h4>
-        ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
-        ${t.note ? `<p class="stage-note-text">${escapeHtml(t.note)}</p>` : ''}
-        ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
-        ${window.isAdmin ? `
-        <div class="stage-controls">
-          <div class="lp-status-row">
-            <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-            <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-            <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+        <div class="ptl-content">
+          <div class="stage-card status-${t.status}">
+            <div class="stage-card-head">
+              <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+              <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+            </div>
+            <h4>${escapeHtml(t.name)}</h4>
+            ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+            ${renderNoteList(t.note)}
+            ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+            ${window.isAdmin ? `
+            <div class="stage-controls">
+              <div class="lp-status-row">
+                <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+                <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+                <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+              </div>
+              <label class="btn btn-ghost btn-sm stage-upload">
+                ＋ 新增照片／檔案
+                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+              </label>
+            </div>` : ''}
           </div>
-          <label class="btn btn-ghost btn-sm stage-upload">
-            ＋ 新增照片／檔案
-            <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-          </label>
-        </div>` : ''}
-      </div>
-      ${!isLast ? `
-      <div class="flow-connector ${connectorActive ? 'active' : ''}">
-        <svg width="20" height="34" viewBox="0 0 20 34" fill="none">
-          <path d="M10 2 V24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M3 18 L10 27 L17 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-      </div>` : ''}`;
+        </div>
+      </div>`;
     }).join('');
 
     container.querySelectorAll('.thumb[data-img-index]').forEach(el => {
@@ -372,7 +330,7 @@
     });
 
     container.querySelectorAll('.stage-card').forEach(item => {
-      const taskId = item.dataset.taskId;
+      const taskId = item.closest('.ptl-item').dataset.taskId;
 
       item.querySelectorAll('.lp-status-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
