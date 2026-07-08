@@ -148,6 +148,14 @@
   </div>
 </div>
 
+<!-- 關卡詳情 modal（燈箱式檢視）-->
+<div class="modal-backdrop" id="stageDetailModal">
+  <div class="modal stage-detail-modal">
+    <button class="modal-close-x" id="stageDetailClose" aria-label="關閉">&times;</button>
+    <div id="stageDetailModalBody"><!-- injected --></div>
+  </div>
+</div>
+
 <!-- 編輯階段 modal -->
 <div class="modal-backdrop" id="editTaskModal">
   <div class="modal">
@@ -202,6 +210,36 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancelTask">取消</button>
       <button class="btn btn-primary" id="btnSaveTask">儲存階段</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯待辦 modal -->
+<div class="modal-backdrop" id="editTodoModal">
+  <div class="modal">
+    <h3>編輯本周待辦</h3>
+    <div class="field"><label>事項內容</label><input type="text" id="ed-text" placeholder="例：會勘路面刨除範圍"></div>
+    <div class="field-row">
+      <div class="field"><label>日期</label><input type="date" id="ed-due"></div>
+      <div class="field">
+        <label>優先度</label>
+        <select id="ed-priority">
+          <option value="high">高</option>
+          <option value="mid">中</option>
+          <option value="low">低</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="cal-toggle-label">
+        <input type="checkbox" id="ed-done">
+        已完成
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteTodo">刪除事項</button>
+      <button class="btn btn-ghost" id="btnCancelEditTodo">取消</button>
+      <button class="btn btn-primary" id="btnSaveEditTodo">儲存變更</button>
     </div>
   </div>
 </div>
