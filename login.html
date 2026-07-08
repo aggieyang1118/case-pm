@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登入｜工程案件管理</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand" style="margin-bottom:26px;">
+      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
+      <h1 style="font-size:23px;">工程案件管理</h1>
+    </div>
+
+    <div id="demoNotice" class="login-notice" hidden>
+      目前為示範模式（尚未連接 Firebase），不需要登入即可使用。
+      <a href="index.html">直接進入 →</a>
+    </div>
+
+    <form id="loginForm">
+      <div id="loginError" class="login-error" hidden></div>
+      <div class="field">
+        <label>帳號 Email</label>
+        <input type="email" id="l-email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input type="password" id="l-password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btnLogin" style="width:100%;">登入</button>
+    </form>
+
+    <p class="login-note">還沒有帳號嗎？請聯絡系統管理者協助建立帳號。</p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script>
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const redirectTo = params.get('redirect') || 'index.html';
+
+  if(!window.FIREBASE_ENABLED){
+    document.getElementById('demoNotice').hidden = false;
+    return;
+  }
+
+  // 如果已經是登入狀態，直接跳轉，不用再填一次
+  firebase.auth().onAuthStateChanged(function(user){
+    if(user) window.location.href = redirectTo;
+  });
+
+  const ERROR_MESSAGES = {
+    'auth/invalid-email': 'Email 格式不正確。',
+    'auth/user-disabled': '這個帳號已被停用，請聯絡管理者。',
+    'auth/user-not-found': '查無此帳號，請確認 Email 是否正確。',
+    'auth/wrong-password': '密碼不正確，請再試一次。',
+    'auth/invalid-credential': '帳號或密碼不正確，請再試一次。',
+    'auth/too-many-requests': '嘗試次數過多，請稍後再試。',
+  };
+
+  const form = document.getElementById('loginForm');
+  const errorBox = document.getElementById('loginError');
+  const btn = document.getElementById('btnLogin');
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    errorBox.hidden = true;
+    const email = document.getElementById('l-email').value.trim();
+    const password = document.getElementById('l-password').value;
+    btn.disabled = true; btn.textContent = '登入中…';
+
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .then(function(){
+        window.location.href = redirectTo;
+      })
+      .catch(function(err){
+        console.error(err);
+        errorBox.textContent = ERROR_MESSAGES[err.code] || '登入失敗，請稍後再試一次。';
+        errorBox.hidden = false;
+        btn.disabled = false; btn.textContent = '登入';
+      });
+  });
+})();
+</script>
+</body>
+</html>

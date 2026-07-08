@@ -278,14 +278,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .stage-node:first-child .line{ display:none; }
 .stage-node label{ margin-top: 9px; font-size: 11.5px; color: var(--ink-faint); font-family: var(--font-body); }
 .stage-node.current label{ color: var(--ink); font-weight:600; }
-.stage-manual-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; flex-wrap:wrap; }
+.stage-manual-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; flex-wrap:wrap; width:100%; }
 .stage-note{ margin:0; font-size:11.5px; color: var(--ink-faint); }
 .stage-link-btn{
   background:none; border:none; padding:0; font-family: var(--font-body); font-size:12px; font-weight:600;
   color: var(--accent); text-decoration: underline; text-underline-offset:2px; flex:none;
 }
 .stage-link-btn:hover{ color: var(--accent-deep); }
-.stage-picker{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.stage-picker{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; width:100%; }
 .stage-picker-btn{
   font-family: var(--font-body); font-size:12.5px; font-weight:500; padding:8px 16px; border-radius:999px;
   border:1px solid var(--border); background: var(--surface); color: var(--ink-soft);
@@ -461,6 +461,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .foot{
   text-align:center; color: var(--ink-faint); font-size:12.5px; font-family: var(--font-num);
   letter-spacing:.04em; padding: 46px 0 10px;
+}
+
+/* ---------- auth: login page + user badge ---------- */
+.login-wrap{
+  min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px;
+}
+.login-card{
+  width: 100%; max-width: 380px; background: var(--surface); border:1px solid var(--border-soft);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-lg); padding: 34px 32px;
+}
+.login-notice{
+  background: var(--accent-pale); color: var(--accent-deep); border-radius: var(--radius-s);
+  padding: 12px 14px; font-size: 13px; line-height:1.6; margin-bottom: 20px;
+}
+.login-notice a{ font-weight:600; text-decoration: underline; }
+.login-error{
+  background: var(--brick-pale); color: var(--brick); border-radius: var(--radius-s);
+  padding: 10px 13px; font-size: 13px; margin-bottom: 16px;
+}
+.login-note{ margin: 20px 0 0; font-size:12px; color: var(--ink-faint); text-align:center; }
+
+.user-badge{
+  font-family: var(--font-num); font-size: 12px; color: var(--ink-soft);
+  padding: 7px 4px; white-space: nowrap;
 }
 
 /* ---------- responsive ---------- */

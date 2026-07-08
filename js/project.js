@@ -78,14 +78,6 @@
   }
 
   async function renderTitleBlock(){
-    const contract = kase.contractAmount || 0;
-    const actual = kase.executedAmount || 0;
-    const dispatched = kase.dispatchedAmount || 0;
-    const expansion = kase.expansionAmount || 0;
-    const undispatched = Math.max(0, contract - dispatched);
-    const remaining = Math.max(0, contract - actual);
-    const rate = contract ? Math.min(999, Math.round((actual / contract) * 100)) : 0;
-
     let autoStage = 0;
     try{
       const [tasks, flow] = await Promise.all([DataStore.getTasks(caseId), DataStore.getFlow(caseId)]);
@@ -112,24 +104,16 @@
         <div class="eyebrow">${escapeHtml(kase.code)} · ${escapeHtml(kase.contractor)}</div>
         <h2>${escapeHtml(kase.name)}</h2>
       </div>
-      <div class="tb-stats">
-        <div class="stat"><label>契約金額</label><div class="val">${money(contract)}</div></div>
-        <div class="stat"><label>實支金額</label><div class="val">${money(actual)}</div></div>
-        <div class="stat"><label>執行率</label><div class="val">${rate}%</div></div>
-        <div class="stat"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
-        <div class="stat"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
-        <div class="stat"><label>剩餘金額</label><div class="val">${money(remaining)}</div></div>
-        <div class="stat"><label>後擴金額</label><div class="val">${money(expansion)}</div></div>
-      </div>
-      <div class="tb-rate-bar"><div class="tb-rate-fill" style="width:${Math.min(100,rate)}%"></div></div>
       <div class="stage-track">${stageHtml}</div>
+      ${window.isAdmin ? `
       <div class="stage-manual-row">
         <p class="stage-note">${isManual ? '目前階段已手動設定，不會依關卡進度自動變動。' : '目前階段依關卡完成進度自動判斷。'}</p>
         ${isManual
           ? `<button class="stage-link-btn" id="btnAutoStage">恢復自動判斷</button>`
           : `<button class="stage-link-btn" id="btnManualStage">手動調整</button>`}
       </div>
-      <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>
+      <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>` : `
+      <p class="stage-note" style="margin-top:12px;">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依關卡完成進度自動判斷。'}</p>`}
     `;
 
     const btnManual = document.getElementById('btnManualStage');
@@ -299,8 +283,11 @@
 
     const popup = document.createElement('div');
     popup.className = 'level-popup';
+    const popupHalfWidth = 125;
+    const mapWidth = document.getElementById('levelMap').offsetWidth;
+    const clampedX = Math.min(Math.max(point.x, popupHalfWidth + 10), mapWidth - popupHalfWidth - 10);
     const above = point.y > 70 + 52; // 節點在下方時，卡片顯示在上方，反之亦然
-    popup.style.left = point.x + 'px';
+    popup.style.left = clampedX + 'px';
     if(above){ popup.style.bottom = (document.getElementById('levelMap').offsetHeight - point.y + 44) + 'px'; }
     else { popup.style.top = (point.y + 44) + 'px'; }
 
@@ -315,6 +302,7 @@
           ? `<div class="thumb" data-img-url="${a.url}"><img src="${a.url}" alt=""></div>`
           : `<div class="thumb filetype">📄<br>${escapeHtml((a.name||'檔案').slice(0,6))}</div>`
         ).join('')}</div>` : ''}
+      ${window.isAdmin ? `
       <div class="lp-status-row">
         <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
         <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
@@ -323,7 +311,7 @@
       <label class="btn btn-ghost btn-sm lp-upload">
         ＋ 新增照片／檔案
         <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-      </label>
+      </label>` : ''}
     `;
     map.appendChild(popup);
     activePopup = popup;
@@ -351,20 +339,22 @@
       });
     });
     const uploadInput = popup.querySelector('input[data-upload-for]');
-    uploadInput.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if(!file) return;
-      const label = popup.querySelector('.lp-upload');
-      label.style.opacity = '0.5';
-      try{
-        await DataStore.uploadAttachment(caseId, t.id, file);
-        await renderLevelMap();
-      } catch(err){
-        console.error(err);
-        alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
-        label.style.opacity = '1';
-      }
-    });
+    if(uploadInput){
+      uploadInput.addEventListener('change', async e => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const label = popup.querySelector('.lp-upload');
+        label.style.opacity = '0.5';
+        try{
+          await DataStore.uploadAttachment(caseId, t.id, file);
+          await renderLevelMap();
+        } catch(err){
+          console.error(err);
+          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
+          label.style.opacity = '1';
+        }
+      });
+    }
 
     setTimeout(() => {
       document.addEventListener('click', function onOutside(e){
@@ -439,9 +429,10 @@
       return;
     }
     const priorityLabel = { high:'高', mid:'中', low:'低' };
+    const readOnlyAttr = window.isAdmin ? '' : 'disabled';
     container.innerHTML = todos.map(t => `
       <div class="todo-item ${t.done?'done':''}" data-id="${t.id}">
-        <input type="checkbox" ${t.done?'checked':''} aria-label="標記完成">
+        <input type="checkbox" ${t.done?'checked':''} ${readOnlyAttr} aria-label="標記完成">
         <div class="txt">
           <div class="t">${escapeHtml(t.text)}</div>
           <div class="m">期限 ${escapeHtml(t.due||'—')}</div>
@@ -519,5 +510,23 @@
     }
   });
 
-  boot();
+  function applyRoleUI(){
+    if(!window.isAdmin){
+      const btnTask = document.getElementById('btnAddTask');
+      const btnTodo = document.getElementById('btnAddTodo');
+      if(btnTask) btnTask.style.display = 'none';
+      if(btnTodo) btnTodo.style.display = 'none';
+    }
+  }
+
+  function init(){
+    applyRoleUI();
+    boot();
+  }
+
+  if(window.FIREBASE_ENABLED){
+    window.addEventListener('auth-ready', init, { once:true });
+  } else {
+    init();
+  }
 })();

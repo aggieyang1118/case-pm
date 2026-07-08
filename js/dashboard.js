@@ -69,7 +69,6 @@
 
     grid.innerHTML = cases.map(c => {
       const meta = DataStore.CATEGORY_META[c.category] || DataStore.CATEGORY_META.other;
-      const pct = c.contractAmount ? Math.min(100, Math.round((c.executedAmount / c.contractAmount) * 100)) : 0;
       return `
       <article class="case-card" data-id="${c.id}" tabindex="0" role="button" aria-label="開啟 ${escapeHtml(c.name)}">
         <div class="cat-bar" style="background:${meta.color}"></div>
@@ -83,13 +82,8 @@
           <label>最新進度</label>
           <p>${escapeHtml(c.latestProgress)}</p>
         </div>` : ''}
-        <div class="stats">
-          <div class="stat"><label>契約金額</label><div class="val">${money(c.contractAmount)}</div></div>
-          <div class="stat"><label>已執行金額</label><div class="val">${money(c.executedAmount)}</div></div>
-        </div>
-        <div class="progress-wrap">
-          <div class="progress-head"><span>執行率</span><span>${pct}%</span></div>
-          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="code-row" style="margin-top:2px;">
+          <span class="code">${escapeHtml(c.contractor||'')}</span>
         </div>
       </article>`;
     }).join('');
@@ -151,8 +145,24 @@
     }
   });
 
-  updateSyncBadge();
-  renderMarquee();
-  renderFilters();
-  loadCasesAndRender();
+  function applyRoleUI(){
+    if(!window.isAdmin){
+      const btn = document.getElementById('btnAddCase');
+      if(btn) btn.style.display = 'none';
+    }
+  }
+
+  function init(){
+    updateSyncBadge();
+    applyRoleUI();
+    renderMarquee();
+    renderFilters();
+    loadCasesAndRender();
+  }
+
+  if(window.FIREBASE_ENABLED){
+    window.addEventListener('auth-ready', init, { once:true });
+  } else {
+    init();
+  }
 })();
