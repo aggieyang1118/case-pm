@@ -31,7 +31,7 @@
    完成以上設定前，這個功能會保持隱藏，不會影響網站其他功能。
    ============================================================ */
 
-const GOOGLE_CLIENT_ID = ""; // 貼上你的 OAuth 用戶端 ID
+const GOOGLE_CLIENT_ID = "1040125598870-vtrs6f3ebnqu65ats32j692la5k4q565.apps.googleusercontent.com";
 const CALENDAR_SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
 let tokenClient = null;
