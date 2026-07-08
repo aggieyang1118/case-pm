@@ -10,9 +10,16 @@
 
 <div class="login-wrap">
   <div class="login-card">
-    <div class="brand" style="margin-bottom:26px;">
-      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
-      <h1 style="font-size:23px;">工程案件管理</h1>
+    <div class="login-mark">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fbfdfe" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="7" width="17" height="13" rx="2"/>
+        <path d="M8 7V5.2C8 4.5 8.6 4 9.2 4h5.6c.6 0 1.2.5 1.2 1.2V7"/>
+        <path d="M3.5 12.5h17"/>
+      </svg>
+    </div>
+    <div class="login-header">
+      <h1>工程案件管理</h1>
+      <p class="login-sub">請登入以檢視與管理案件資料</p>
     </div>
 
     <div id="demoNotice" class="login-notice" hidden>
@@ -23,8 +30,8 @@
     <form id="loginForm">
       <div id="loginError" class="login-error" hidden></div>
       <div class="field">
-        <label>帳號 Email</label>
-        <input type="email" id="l-email" autocomplete="username" required>
+        <label>帳號</label>
+        <input type="text" id="l-email" autocomplete="username" placeholder="例如：aggie" required>
       </div>
       <div class="field">
         <label>密碼</label>
@@ -58,10 +65,21 @@
     if(user) window.location.href = redirectTo;
   });
 
+  // Firebase 的帳密登入技術上一定要是 Email 格式，
+  // 所以這裡在背景幫使用者輸入的「帳號」自動補上一個固定、
+  // 不會真的用來收信的網域，讓畫面上只需要看到「帳號」二字。
+  // 如果使用者輸入的內容本身就含有 @（例如管理者用真實 Email 登入），
+  // 就直接使用，不會重複加上網域。
+  const FAKE_EMAIL_DOMAIN = 'case-pm.local';
+  function toLoginEmail(input){
+    const v = input.trim();
+    return v.includes('@') ? v : (v + '@' + FAKE_EMAIL_DOMAIN);
+  }
+
   const ERROR_MESSAGES = {
-    'auth/invalid-email': 'Email 格式不正確。',
+    'auth/invalid-email': '帳號格式不正確，請確認輸入內容。',
     'auth/user-disabled': '這個帳號已被停用，請聯絡管理者。',
-    'auth/user-not-found': '查無此帳號，請確認 Email 是否正確。',
+    'auth/user-not-found': '查無此帳號，請確認帳號是否正確。',
     'auth/wrong-password': '密碼不正確，請再試一次。',
     'auth/invalid-credential': '帳號或密碼不正確，請再試一次。',
     'auth/too-many-requests': '嘗試次數過多，請稍後再試。',
@@ -74,7 +92,7 @@
   form.addEventListener('submit', function(e){
     e.preventDefault();
     errorBox.hidden = true;
-    const email = document.getElementById('l-email').value.trim();
+    const email = toLoginEmail(document.getElementById('l-email').value);
     const password = document.getElementById('l-password').value;
     btn.disabled = true; btn.textContent = '登入中…';
 
