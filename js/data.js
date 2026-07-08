@@ -154,19 +154,19 @@ function seedData(){
     },
     todos: {
       c1: [
-        { id:'d1', text:'會勘路面刨除範圍是否需擴大', due:'07/11', priority:'mid', done:false },
-        { id:'d2', text:'確認瀝青配比送審進度', due:'07/12', priority:'high', done:false },
-        { id:'d3', text:'回覆里長詢問施工噪音陳情', due:'07/09', priority:'high', done:true },
+        { id:'d1', text:'會勘路面刨除範圍是否需擴大', date:'2026-07-11', priority:'mid', done:false },
+        { id:'d2', text:'確認瀝青配比送審進度', date:'2026-07-12', priority:'high', done:false },
+        { id:'d3', text:'回覆里長詢問施工噪音陳情', date:'2026-07-09', priority:'high', done:true },
       ],
       c2: [
-        { id:'d4', text:'提送結算尾款請款單至會計室', due:'07/09', priority:'high', done:false },
+        { id:'d4', text:'提送結算尾款請款單至會計室', date:'2026-07-09', priority:'high', done:false },
       ],
       c3: [
-        { id:'d5', text:'提送開工報告至工務局', due:'07/10', priority:'high', done:false },
-        { id:'d6', text:'確認護欄材料到貨日期', due:'07/16', priority:'mid', done:false },
+        { id:'d5', text:'提送開工報告至工務局', date:'2026-07-10', priority:'high', done:false },
+        { id:'d6', text:'確認護欄材料到貨日期', date:'2026-07-16', priority:'mid', done:false },
       ],
       c4: [
-        { id:'d7', text:'招標文件用印', due:'07/14', priority:'mid', done:false },
+        { id:'d7', text:'招標文件用印', date:'2026-07-14', priority:'mid', done:false },
       ],
     },
   };
@@ -207,6 +207,14 @@ const LocalBackend = {
     if(c){ Object.assign(c, patch); saveDB(db); }
     return c;
   },
+  async deleteCase(caseId){
+    const db = loadDB();
+    db.cases = db.cases.filter(c => c.id !== caseId);
+    delete db.tasks[caseId];
+    delete db.flow[caseId];
+    delete db.todos[caseId];
+    saveDB(db);
+  },
   async getWeeklyGlobal(){ return loadDB().weeklyGlobal; },
   async getTasks(caseId){ return loadDB().tasks[caseId] || []; },
   async addTask(caseId, task){
@@ -217,6 +225,11 @@ const LocalBackend = {
     db.tasks[caseId].push(task);
     saveDB(db);
     return task;
+  },
+  async deleteTask(caseId, taskId){
+    const db = loadDB();
+    db.tasks[caseId] = (db.tasks[caseId]||[]).filter(t => t.id !== taskId);
+    saveDB(db);
   },
   async addAttachment(caseId, taskId, attachment){
     const db = loadDB();
@@ -318,6 +331,19 @@ const FirebaseBackend = {
     const doc = await ref.get();
     return { id: doc.id, ...doc.data() };
   },
+  async deleteCase(caseId){
+    const caseRef = window.db.collection('cases').doc(caseId);
+    const subcollections = ['tasks', 'flow', 'todos'];
+    for(const sub of subcollections){
+      const snap = await caseRef.collection(sub).get();
+      if(!snap.empty){
+        const batch = window.db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+    await caseRef.delete();
+  },
   async getWeeklyGlobal(){
     await this._seedIfEmpty();
     const snap = await window.db.collection('weeklyGlobal').get();
@@ -331,6 +357,9 @@ const FirebaseBackend = {
     task.attachments = task.attachments || [];
     const ref = await window.db.collection('cases').doc(caseId).collection('tasks').add(task);
     return { id: ref.id, ...task };
+  },
+  async deleteTask(caseId, taskId){
+    await window.db.collection('cases').doc(caseId).collection('tasks').doc(taskId).delete();
   },
   async addAttachment(caseId, taskId, attachment){
     const ref = window.db.collection('cases').doc(caseId).collection('tasks').doc(taskId);
@@ -392,9 +421,11 @@ const DataStore = {
   getCase(id){ return backend().getCase(id); },
   addCase(caseObj){ return backend().addCase(caseObj); },
   updateCase(caseId, patch){ return backend().updateCase(caseId, patch); },
+  deleteCase(caseId){ return backend().deleteCase(caseId); },
   getWeeklyGlobal(){ return backend().getWeeklyGlobal(); },
   getTasks(caseId){ return backend().getTasks(caseId); },
   addTask(caseId, task){ return backend().addTask(caseId, task); },
+  deleteTask(caseId, taskId){ return backend().deleteTask(caseId, taskId); },
   addAttachment(caseId, taskId, attachment){ return backend().addAttachment(caseId, taskId, attachment); },
   updateTaskStatus(caseId, taskId, status){ return backend().updateTaskStatus(caseId, taskId, status); },
   updateTask(caseId, taskId, patch){ return backend().updateTask(caseId, taskId, patch); },

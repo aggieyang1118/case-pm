@@ -112,7 +112,11 @@
         <div class="eyebrow">${escapeHtml(kase.code)} · ${escapeHtml(kase.contractor)}</div>
         <div class="tb-name-row">
           <h2>${escapeHtml(kase.name)}</h2>
-          ${window.isAdmin ? `<button class="btn btn-ghost btn-sm" id="btnEditCase">編輯標案</button>` : ''}
+          ${window.isAdmin ? `
+          <div class="tb-name-actions">
+            <button class="btn btn-ghost btn-sm" id="btnEditCase">編輯標案</button>
+            <button class="btn btn-danger btn-sm" id="btnDeleteCase">刪除標案</button>
+          </div>` : ''}
         </div>
       </div>
       <div class="tb-stats-grid">
@@ -138,6 +142,22 @@
     const btnEdit = document.getElementById('btnEditCase');
     if(btnEdit){
       btnEdit.addEventListener('click', openEditModal);
+    }
+    const btnDelete = document.getElementById('btnDeleteCase');
+    if(btnDelete){
+      btnDelete.addEventListener('click', async () => {
+        const ok = confirm(`確定要刪除「${kase.name}」這筆標案嗎？\n這會一併刪除底下所有的工程進度、養工流程與待辦事項，且無法復原。`);
+        if(!ok) return;
+        btnDelete.disabled = true; btnDelete.textContent = '刪除中…';
+        try{
+          await DataStore.deleteCase(caseId);
+          window.location.href = 'index.html';
+        } catch(err){
+          console.error(err);
+          alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+          btnDelete.disabled = false; btnDelete.textContent = '刪除標案';
+        }
+      });
     }
     const btnManual = document.getElementById('btnManualStage');
     if(btnManual){
@@ -250,6 +270,7 @@
 
   const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
   const NODE_COLORS = ['#c17b5f', '#c99a4a', '#6a9080', '#3d7ea6', '#8087b0', '#a2685f', '#5b8fb0'];
+  let selectedTaskId = null;
 
   function renderNoteList(note){
     if(!note) return '';
@@ -259,7 +280,14 @@
     return `<ul class="stage-note-list">${lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
   }
 
-  // ---------------- 工程進度：蜿蜒流程路徑 ----------------
+  function mapColumnsForWidth(){
+    const w = window.innerWidth;
+    if(w >= 900) return 5;
+    if(w >= 600) return 3;
+    return 2;
+  }
+
+  // ---------------- 工程進度：S 型闖關地圖 ＋ 下方詳情面板 ----------------
   async function renderStageTimeline(){
     const container = document.getElementById('stageTimeline');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
@@ -282,99 +310,164 @@
       return;
     }
 
-    container.innerHTML = tasks.map((t, i) => {
-      const attachHtml = (t.attachments||[]).map(a => {
-        if(a.type === 'image'){
-          const imgIndex = allImages.findIndex(x => x.url === a.url);
-          return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
+    const COLS = mapColumnsForWidth();
+    const rows = [];
+    for(let i = 0; i < tasks.length; i += COLS) rows.push(tasks.slice(i, i + COLS));
+
+    let mapHtml = '<div class="map-wrap">';
+    rows.forEach((row, rIdx) => {
+      const dir = rIdx % 2 === 0 ? 'ltr' : 'rtl';
+      mapHtml += `<div class="map-row ${dir}">`;
+      row.forEach((t, idxInRow) => {
+        const nodeColor = NODE_COLORS[(rIdx*COLS + idxInRow) % NODE_COLORS.length];
+        const nodeInner = t.status === 'done' ? '✓' : (t.status === 'progress' ? '●' : (rIdx*COLS + idxInRow + 1));
+        mapHtml += `
+          <div class="map-node" data-task-id="${t.id}" tabindex="0" role="button" aria-label="${escapeHtml(t.name)}">
+            <div class="map-node-icon status-${t.status}" style="--node-color:${nodeColor}">${nodeInner}</div>
+            <div class="map-node-label">${escapeHtml(t.name)}</div>
+          </div>`;
+        if(idxInRow < row.length - 1){
+          mapHtml += `<div class="map-connector ${t.status==='done'?'active':''}"></div>`;
         }
-        return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
-      }).join('');
+      });
+      mapHtml += `</div>`;
+      if(rIdx < rows.length - 1){
+        const lastTask = row[row.length - 1];
+        const side = rIdx % 2 === 0 ? 'right' : 'left';
+        mapHtml += `<div class="row-turn turn-${side} ${lastTask.status==='done'?'active':''}"><div class="turn-line"></div></div>`;
+      }
+    });
+    mapHtml += '</div><div class="stage-detail-panel" id="stageDetailPanel"></div>';
 
-      const side = i % 2 === 0 ? 'right' : 'left';
-      const nodeColor = NODE_COLORS[i % NODE_COLORS.length];
-      const nodeInner = t.status === 'done' ? '✓' : (t.status === 'progress' ? '●' : (i+1));
+    container.innerHTML = mapHtml;
 
-      return `
-      <div class="ptl-item ${side}" data-task-id="${t.id}">
-        <div class="ptl-node-wrap">
-          <div class="ptl-node status-${t.status}" style="--node-color:${nodeColor}">${nodeInner}</div>
-        </div>
-        <div class="ptl-content">
-          <div class="stage-card status-${t.status}">
-            <div class="stage-card-head">
-              <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
-              <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
-            </div>
-            <h4>${escapeHtml(t.name)}</h4>
-            ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
-            ${renderNoteList(t.note)}
-            ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
-            ${window.isAdmin ? `
-            <div class="stage-controls">
-              <div class="lp-status-row">
-                <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-                <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-                <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
-              </div>
-              <div class="stage-controls-row">
-                <label class="btn btn-ghost btn-sm stage-upload">
-                  ＋ 新增照片／檔案
-                  <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-                </label>
-                <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯階段</button>
-              </div>
-            </div>` : ''}
-          </div>
-        </div>
-      </div>`;
+    container.querySelectorAll('.map-node').forEach(el => {
+      const pick = () => selectTask(el.dataset.taskId);
+      el.addEventListener('click', pick);
+      el.addEventListener('keydown', e => { if(e.key === 'Enter') pick(); });
+    });
+
+    if(!selectedTaskId || !currentTasks.find(t => t.id === selectedTaskId)){
+      const firstProgress = currentTasks.find(t => t.status === 'progress');
+      selectedTaskId = firstProgress ? firstProgress.id : currentTasks[0].id;
+    }
+    updateActiveNode();
+    renderDetailPanel();
+  }
+
+  function updateActiveNode(){
+    document.querySelectorAll('.map-node').forEach(el => {
+      el.classList.toggle('active', el.dataset.taskId === selectedTaskId);
+    });
+  }
+
+  function selectTask(id){
+    selectedTaskId = id;
+    updateActiveNode();
+    renderDetailPanel();
+  }
+
+  function renderDetailPanel(){
+    const panel = document.getElementById('stageDetailPanel');
+    const t = currentTasks.find(x => x.id === selectedTaskId);
+    if(!t){ panel.innerHTML = ''; return; }
+
+    const attachHtml = (t.attachments||[]).map(a => {
+      if(a.type === 'image'){
+        const imgIndex = allImages.findIndex(x => x.url === a.url);
+        return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
+      }
+      return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
     }).join('');
 
-    container.querySelectorAll('.thumb[data-img-index]').forEach(el => {
+    panel.innerHTML = `
+      <div class="stage-card status-${t.status}">
+        <div class="stage-card-head">
+          <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+          <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+        </div>
+        <h4>${escapeHtml(t.name)}</h4>
+        ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+        ${renderNoteList(t.note)}
+        ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+        ${window.isAdmin ? `
+        <div class="stage-controls">
+          <div class="lp-status-row">
+            <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+            <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+            <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+          </div>
+          <div class="stage-controls-row">
+            <label class="btn btn-ghost btn-sm stage-upload">
+              ＋ 新增照片／檔案
+              <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+            </label>
+            <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯階段</button>
+            <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除階段</button>
+          </div>
+        </div>` : ''}
+      </div>`;
+
+    panel.querySelectorAll('.thumb[data-img-index]').forEach(el => {
       el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
     });
 
-    container.querySelectorAll('.stage-edit-btn').forEach(el => {
-      el.addEventListener('click', () => openEditTaskModal(el.dataset.editTask));
-    });
+    const editBtn = panel.querySelector('.stage-edit-btn');
+    if(editBtn){
+      editBtn.addEventListener('click', () => openEditTaskModal(editBtn.dataset.editTask));
+    }
 
-    container.querySelectorAll('.stage-card').forEach(item => {
-      const taskId = item.closest('.ptl-item').dataset.taskId;
-
-      item.querySelectorAll('.lp-status-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const newStatus = btn.dataset.status;
-          const statusRow = btn.closest('.lp-status-row');
-          statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
-          try{
-            await DataStore.updateTaskStatus(caseId, taskId, newStatus);
-            await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-          } catch(err){
-            console.error(err);
-            alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
-            statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = false);
-          }
-        });
+    const deleteBtn = panel.querySelector('.stage-delete-btn');
+    if(deleteBtn){
+      deleteBtn.addEventListener('click', async () => {
+        const ok = confirm(`確定要刪除「${t.name}」這個階段嗎？此動作無法復原。`);
+        if(!ok) return;
+        deleteBtn.disabled = true; deleteBtn.textContent = '刪除中…';
+        try{
+          await DataStore.deleteTask(caseId, t.id);
+          if(selectedTaskId === t.id) selectedTaskId = null;
+          await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+        } catch(err){
+          console.error(err);
+          alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+          deleteBtn.disabled = false; deleteBtn.textContent = '刪除階段';
+        }
       });
+    }
 
-      const uploadInput = item.querySelector('input[data-upload-for]');
-      if(uploadInput){
-        uploadInput.addEventListener('change', async e => {
-          const file = e.target.files[0];
-          if(!file) return;
-          const label = item.querySelector('.stage-upload');
-          label.style.opacity = '0.5';
-          try{
-            await DataStore.uploadAttachment(caseId, taskId, file);
-            await renderStageTimeline();
-          } catch(err){
-            console.error(err);
-            alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
-            label.style.opacity = '1';
-          }
-        });
-      }
+    panel.querySelectorAll('.lp-status-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const newStatus = btn.dataset.status;
+        const statusRow = btn.closest('.lp-status-row');
+        statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
+        try{
+          await DataStore.updateTaskStatus(caseId, t.id, newStatus);
+          await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+        } catch(err){
+          console.error(err);
+          alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
+          statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = false);
+        }
+      });
     });
+
+    const uploadInput = panel.querySelector('input[data-upload-for]');
+    if(uploadInput){
+      uploadInput.addEventListener('change', async e => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const label = panel.querySelector('.stage-upload');
+        label.style.opacity = '0.5';
+        try{
+          await DataStore.uploadAttachment(caseId, t.id, file);
+          await renderStageTimeline();
+        } catch(err){
+          console.error(err);
+          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
+          label.style.opacity = '1';
+        }
+      });
+    }
   }
 
   const lb = document.getElementById('lightbox');
@@ -428,45 +521,99 @@
     `).join('') || `<div class="empty-state"><h4>尚無流程紀錄</h4></div>`;
   }
 
+  const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
+  let calendarViewDate = new Date();
+  let allTodos = [];
+
+  function pad2(n){ return String(n).padStart(2, '0'); }
+  function toISODate(y, m, d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
+  function todayISO(){ const d = new Date(); return toISODate(d.getFullYear(), d.getMonth(), d.getDate()); }
+
   async function renderTodos(){
-    const container = document.getElementById('todoList');
-    container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
-    let todos;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
     try{
-      todos = await DataStore.getTodos(caseId);
+      allTodos = await DataStore.getTodos(caseId);
     } catch(err){
       console.error(err);
-      container.innerHTML = `<div class="empty-state"><h4>待辦讀取失敗</h4></div>`;
+      grid.innerHTML = `<div class="empty-state"><h4>待辦讀取失敗</h4></div>`;
       return;
     }
-    const priorityLabel = { high:'高', mid:'中', low:'低' };
-    const readOnlyAttr = window.isAdmin ? '' : 'disabled';
-    container.innerHTML = todos.map(t => `
-      <div class="todo-item ${t.done?'done':''}" data-id="${t.id}">
-        <input type="checkbox" ${t.done?'checked':''} ${readOnlyAttr} aria-label="標記完成">
-        <div class="txt">
-          <div class="t">${escapeHtml(t.text)}</div>
-          <div class="m">期限 ${escapeHtml(t.due||'—')}</div>
-        </div>
-        <span class="priority-tag ${t.priority}">${priorityLabel[t.priority]||'中'}</span>
-      </div>
-    `).join('') || `<div class="empty-state"><h4>本週沒有待辦事項</h4></div>`;
+    renderCalendarGrid();
+  }
 
-    document.querySelectorAll('#todoList input[type=checkbox]').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        const id = cb.closest('.todo-item').dataset.id;
-        cb.disabled = true;
+  function renderCalendarGrid(){
+    const grid = document.getElementById('calGrid');
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+
+    document.getElementById('calMonthLabel').textContent = `${year} 年 ${month + 1} 月`;
+
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = todayISO();
+
+    const todosByDate = {};
+    allTodos.forEach(t => {
+      const key = t.date || '';
+      if(!todosByDate[key]) todosByDate[key] = [];
+      todosByDate[key].push(t);
+    });
+
+    let html = WEEKDAY_LABELS.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+
+    for(let i = 0; i < startWeekday; i++){
+      html += `<div class="cal-day empty"></div>`;
+    }
+
+    for(let day = 1; day <= daysInMonth; day++){
+      const iso = toISODate(year, month, day);
+      const dayTodos = todosByDate[iso] || [];
+      const isToday = iso === today;
+      html += `
+        <div class="cal-day ${isToday ? 'today' : ''}" data-date="${iso}">
+          <div class="cal-day-num">${day}</div>
+          ${dayTodos.map(t => `
+            <div class="cal-chip ${t.priority} ${t.done?'done':''}" data-todo-id="${t.id}" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</div>
+          `).join('')}
+        </div>`;
+    }
+
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-chip').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if(!window.isAdmin) return;
+        const id = el.dataset.todoId;
+        el.style.opacity = '0.5';
         try{
           await DataStore.toggleTodo(caseId, id);
           await renderTodos();
         } catch(err){
           console.error(err);
           alert('更新失敗，請稍後再試一次。');
-          cb.disabled = false;
+          el.style.opacity = '1';
         }
       });
     });
+
+    if(window.isAdmin){
+      grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+        el.addEventListener('click', () => openAddTodoModal(el.dataset.date));
+      });
+    }
   }
+
+  document.getElementById('calPrevMonth').addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
+    renderCalendarGrid();
+  });
+  document.getElementById('calNextMonth').addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
+    renderCalendarGrid();
+  });
 
   function openEditTaskModal(taskId){
     const t = currentTasks.find(x => x.id === taskId);
@@ -539,21 +686,78 @@
   });
 
   const todoModal = document.getElementById('addTodoModal');
-  document.getElementById('btnAddTodo').addEventListener('click', ()=> todoModal.classList.add('open'));
+
+  function openAddTodoModal(dateISO){
+    document.getElementById('d-text').value = '';
+    document.getElementById('d-due').value = dateISO || todayISO();
+    document.getElementById('d-priority').value = 'mid';
+    document.getElementById('d-cal-toggle').checked = false;
+    document.getElementById('calFields').hidden = true;
+    todoModal.classList.add('open');
+    const calToggleField = document.getElementById('calToggleField');
+    const isConfigured = window.CalendarIntegration && window.CalendarIntegration.isConfigured();
+    calToggleField.hidden = !isConfigured;
+  }
+
+  document.getElementById('btnAddTodo').addEventListener('click', () => openAddTodoModal(todayISO()));
   document.getElementById('btnCancelTodo').addEventListener('click', ()=> todoModal.classList.remove('open'));
   todoModal.addEventListener('click', e=>{ if(e.target===todoModal) todoModal.classList.remove('open'); });
+
+  document.getElementById('d-cal-toggle').addEventListener('change', (e) => {
+    document.getElementById('calFields').hidden = !e.target.checked;
+    if(e.target.checked){
+      const dateVal = document.getElementById('d-due').value || todayISO();
+      const startEl = document.getElementById('d-cal-start');
+      const endEl = document.getElementById('d-cal-end');
+      if(!startEl.value) startEl.value = `${dateVal}T09:00`;
+      if(!endEl.value) endEl.value = `${dateVal}T10:00`;
+    }
+  });
+
   document.getElementById('btnSaveTodo').addEventListener('click', async () => {
     const text = document.getElementById('d-text').value.trim();
     if(!text){ alert('請輸入事項內容'); return; }
+    const date = document.getElementById('d-due').value;
+    if(!date){ alert('請選擇日期'); return; }
+
+    const wantsCalendar = document.getElementById('d-cal-toggle').checked;
+    let calStart, calEnd, calEmails;
+    if(wantsCalendar){
+      calStart = document.getElementById('d-cal-start').value;
+      calEnd = document.getElementById('d-cal-end').value;
+      calEmails = document.getElementById('d-cal-emails').value.split(',').map(s => s.trim()).filter(Boolean);
+      if(!calStart || !calEnd){ alert('請填寫日曆事件的開始與結束時間'); return; }
+      if(calEmails.length === 0){ alert('請至少填一個通知對象的 Email'); return; }
+    }
+
     const btn = document.getElementById('btnSaveTodo');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
       await DataStore.addTodo(caseId, {
         text,
-        due: document.getElementById('d-due').value.trim(),
+        date,
         priority: document.getElementById('d-priority').value,
       });
+
+      if(wantsCalendar){
+        btn.textContent = '建立日曆提醒中…';
+        try{
+          await window.CalendarIntegration.createEvent({
+            title: text,
+            description: `來自「${kase.name}」標案的待辦事項提醒。`,
+            start: calStart,
+            end: calEnd,
+            attendeeEmails: calEmails,
+          });
+        } catch(calErr){
+          console.error(calErr);
+          alert('待辦事項已儲存，但 Google 日曆提醒建立失敗，請確認是否已完成 Google 授權，或稍後再試一次。');
+        }
+      }
+
       todoModal.classList.remove('open');
+      document.getElementById('d-cal-toggle').checked = false;
+      document.getElementById('calFields').hidden = true;
       await renderTodos();
     } catch(err){
       console.error(err);

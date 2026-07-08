@@ -44,7 +44,7 @@
     <div class="panel-head">
       <div>
         <h3>工程進度</h3>
-        <p>每個階段代表一項工程進度，可查看日期、備註與現場照片，點圖片可全螢幕檢視。</p>
+        <p>點選地圖上的關卡查看該階段的日期、備註與現場照片，點圖片可全螢幕檢視。</p>
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增階段</button>
     </div>
@@ -67,11 +67,16 @@
     <div class="panel-head">
       <div>
         <h3>本周待做事項</h3>
-        <p>此標案本週需要處理的事項，完成後可勾選標記。</p>
+        <p>點日期新增當天的事項，點事項可標記完成。跟前面一樣可以選擇同步到 Google 日曆。</p>
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddTodo">＋ 新增事項</button>
     </div>
-    <div class="todo-list" id="todoList"><!-- injected --></div>
+    <div class="cal-header">
+      <button class="btn btn-ghost btn-sm" id="calPrevMonth" aria-label="上個月">‹</button>
+      <h4 id="calMonthLabel">—</h4>
+      <button class="btn btn-ghost btn-sm" id="calNextMonth" aria-label="下個月">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"><!-- injected --></div>
   </section>
 
   <div class="foot">Create by Aggie Yang</div>
@@ -207,7 +212,7 @@
     <h3>新增本周待辦</h3>
     <div class="field"><label>事項內容</label><input type="text" id="d-text" placeholder="例：會勘路面刨除範圍"></div>
     <div class="field-row">
-      <div class="field"><label>期限</label><input type="text" id="d-due" placeholder="例：07/15"></div>
+      <div class="field"><label>日期</label><input type="date" id="d-due"></div>
       <div class="field">
         <label>優先度</label>
         <select id="d-priority">
@@ -217,6 +222,24 @@
         </select>
       </div>
     </div>
+
+    <div class="field cal-toggle-field" id="calToggleField" hidden>
+      <label class="cal-toggle-label">
+        <input type="checkbox" id="d-cal-toggle">
+        同時建立 Google 日曆提醒並通知對方
+      </label>
+    </div>
+    <div id="calFields" hidden>
+      <div class="field-row">
+        <div class="field"><label>開始時間</label><input type="datetime-local" id="d-cal-start"></div>
+        <div class="field"><label>結束時間</label><input type="datetime-local" id="d-cal-end"></div>
+      </div>
+      <div class="field">
+        <label>通知對象 Email（多人用逗號分隔）</label>
+        <input type="text" id="d-cal-emails" placeholder="例：director@example.com">
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancelTodo">取消</button>
       <button class="btn btn-primary" id="btnSaveTodo">儲存事項</button>
@@ -226,6 +249,9 @@
 
 </div><!-- /#appRoot -->
 
+<script src="js/calendar.js"></script>
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
