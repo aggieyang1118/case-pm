@@ -13,7 +13,6 @@
 
   <header class="topbar">
     <div class="brand">
-      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
       <h1 id="pageTitle">標案詳情</h1>
     </div>
     <div class="topbar-actions">
@@ -35,25 +34,21 @@
 
   <!-- 頁籤 -->
   <div class="tabs" role="tablist">
-    <button class="tab-btn active" data-tab="net" role="tab">工程進度網圖</button>
+    <button class="tab-btn active" data-tab="net" role="tab">工程進度</button>
     <button class="tab-btn" data-tab="flow" role="tab">養工流程</button>
     <button class="tab-btn" data-tab="todo" role="tab">本周待做事項</button>
   </div>
 
-  <!-- 工程進度網圖 -->
+  <!-- 工程進度 -->
   <section class="tab-panel active" id="panel-net">
     <div class="panel-head">
       <div>
-        <h3>工程進度網圖</h3>
-        <p>每個關卡代表一項工程進度，點擊關卡查看日期、備註與現場照片，點圖片可全螢幕檢視。</p>
+        <h3>工程進度</h3>
+        <p>每個階段代表一項工程進度，可查看日期、備註與現場照片，點圖片可全螢幕檢視。</p>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增關卡</button>
+      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增階段</button>
     </div>
-    <div class="level-map-scroll">
-      <div class="level-map" id="levelMap">
-        <svg class="level-svg" id="levelSvg"></svg>
-      </div>
-    </div>
+    <div class="stage-timeline" id="stageTimeline"><!-- injected --></div>
   </section>
 
   <!-- 養工流程 -->
@@ -91,11 +86,78 @@
   <div class="lb-caption" id="lbCaption"></div>
 </div>
 
-<!-- 新增工項 modal -->
+<!-- 編輯標案 modal -->
+<div class="modal-backdrop" id="editCaseModal">
+  <div class="modal">
+    <h3>編輯標案</h3>
+    <div class="field">
+      <label>標案名稱</label>
+      <input type="text" id="e-name" placeholder="例：大墩十九街人行道改善工程">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>案號</label>
+        <input type="text" id="e-code" placeholder="NT-2026-0XX">
+      </div>
+      <div class="field">
+        <label>案件類別</label>
+        <select id="e-category"><!-- 選項由 JS 動態產生 --></select>
+        <div class="new-cat-row" id="editNewCatRow" hidden>
+          <input type="text" id="e-new-cat-name" placeholder="新分類名稱，例如：機電工程">
+          <button type="button" class="btn btn-sm" id="btnEditCreateCat">新增</button>
+        </div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>契約金額（元）</label>
+        <input type="number" id="e-contract" placeholder="0">
+      </div>
+      <div class="field">
+        <label>實支金額（元）</label>
+        <input type="number" id="e-executed" placeholder="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>已派工金額（元）</label>
+        <input type="number" id="e-dispatched" placeholder="0">
+      </div>
+      <div class="field">
+        <label>後擴金額（元）</label>
+        <input type="number" id="e-expansion" placeholder="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>未派工金額（元）</label>
+        <input type="number" id="e-undispatched" placeholder="0">
+      </div>
+      <div class="field">
+        <label>可派工金額（元）</label>
+        <input type="number" id="e-available" placeholder="0">
+      </div>
+    </div>
+    <div class="field">
+      <label>承包廠商</label>
+      <input type="text" id="e-contractor" placeholder="廠商名稱">
+    </div>
+    <div class="field">
+      <label>最新進度</label>
+      <input type="text" id="e-progress" placeholder="例：瀝青鋪面施作中，預計 XX 完成">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelEdit">取消</button>
+      <button class="btn btn-primary" id="btnSaveEdit">儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增階段 modal -->
 <div class="modal-backdrop" id="addTaskModal">
   <div class="modal">
-    <h3>新增工項</h3>
-    <div class="field"><label>工項名稱</label><input type="text" id="t-name" placeholder="例：瀝青混凝土鋪設"></div>
+    <h3>新增階段</h3>
+    <div class="field"><label>階段名稱</label><input type="text" id="t-name" placeholder="例：瀝青混凝土鋪設"></div>
     <div class="field"><label>負責單位／人員</label><input type="text" id="t-owner" placeholder="例：順成營造 / 王工務"></div>
     <div class="field"><label>備註</label><textarea id="t-note" placeholder="例：已核准開工，函文字號 XXX"></textarea></div>
     <div class="field-row">
