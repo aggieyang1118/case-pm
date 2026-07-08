@@ -257,6 +257,17 @@ const LocalBackend = {
     if(item){ item.done = !item.done; saveDB(db); }
     return item;
   },
+  async updateTodo(caseId, todoId, patch){
+    const db = loadDB();
+    const item = (db.todos[caseId]||[]).find(t=>t.id===todoId);
+    if(item){ Object.assign(item, patch); saveDB(db); }
+    return item;
+  },
+  async deleteTodo(caseId, todoId){
+    const db = loadDB();
+    db.todos[caseId] = (db.todos[caseId]||[]).filter(t => t.id !== todoId);
+    saveDB(db);
+  },
   async addTodo(caseId, todo){
     const db = loadDB();
     todo.id = 'd' + Date.now();
@@ -394,6 +405,15 @@ const FirebaseBackend = {
     await ref.update({ done: next });
     return { id: doc.id, ...doc.data(), done: next };
   },
+  async updateTodo(caseId, todoId, patch){
+    const ref = window.db.collection('cases').doc(caseId).collection('todos').doc(todoId);
+    await ref.update(patch);
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
+  async deleteTodo(caseId, todoId){
+    await window.db.collection('cases').doc(caseId).collection('todos').doc(todoId).delete();
+  },
   async addTodo(caseId, todo){
     todo.done = false;
     const ref = await window.db.collection('cases').doc(caseId).collection('todos').add(todo);
@@ -433,6 +453,8 @@ const DataStore = {
   getFlow(caseId){ return backend().getFlow(caseId); },
   getTodos(caseId){ return backend().getTodos(caseId); },
   toggleTodo(caseId, todoId){ return backend().toggleTodo(caseId, todoId); },
+  updateTodo(caseId, todoId, patch){ return backend().updateTodo(caseId, todoId, patch); },
+  deleteTodo(caseId, todoId){ return backend().deleteTodo(caseId, todoId); },
   addTodo(caseId, todo){ return backend().addTodo(caseId, todo); },
 
   STAGE_LABELS,
