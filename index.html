@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>工程案件管理｜案件總覽</title>
+<title>工程案件管理</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,8 +13,7 @@
 
   <header class="topbar">
     <div class="brand">
-      <span class="eyebrow">TAICHUNG · NANTUN DISTRICT · PUBLIC WORKS</span>
-      <h1>工程案件管理<small>案件總覽</small></h1>
+      <h1>工程案件管理</h1>
     </div>
     <div class="topbar-actions">
       <span class="sync-badge" id="syncBadge">— 模式偵測中 —</span>
@@ -64,13 +63,11 @@
       </div>
       <div class="field">
         <label>案件類別</label>
-        <select id="f-category">
-          <option value="road">路平專案</option>
-          <option value="drain">排水工程</option>
-          <option value="bridge">橋梁維護</option>
-          <option value="facility">公共設施</option>
-          <option value="other">其他案件</option>
-        </select>
+        <select id="f-category"><!-- 選項由 JS 動態產生 --></select>
+        <div class="new-cat-row" id="newCatRow" hidden>
+          <input type="text" id="f-new-cat-name" placeholder="新分類名稱，例如：機電工程">
+          <button type="button" class="btn btn-sm" id="btnCreateCat">新增</button>
+        </div>
       </div>
     </div>
     <div class="field-row">
@@ -91,6 +88,16 @@
       <div class="field">
         <label>後擴金額（元）</label>
         <input type="number" id="f-expansion" placeholder="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>未派工金額（元）</label>
+        <input type="number" id="f-undispatched" placeholder="0">
+      </div>
+      <div class="field">
+        <label>可派工金額（元）</label>
+        <input type="number" id="f-available" placeholder="0">
       </div>
     </div>
     <div class="field">

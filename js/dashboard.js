@@ -1,14 +1,17 @@
 (function(){
-  const money = n => '$' + Number(n||0).toLocaleString('zh-TW');
-
   let activeCat = 'all';
   let searchTerm = '';
   let allCases = [];
+  let categoriesMap = {};
 
   function escapeHtml(str){
     const div = document.createElement('div');
     div.textContent = str ?? '';
     return div.innerHTML;
+  }
+
+  function catMeta(key){
+    return categoriesMap[key] || { label: key || '未分類', color: '#a3a3a0' };
   }
 
   function updateSyncBadge(){
@@ -34,21 +37,13 @@
 
   function renderFilters(){
     const row = document.getElementById('filterRow');
-    const cats = DataStore.CATEGORY_META;
-    Object.keys(cats).forEach(key => {
+    row.querySelectorAll('.chip:not([data-cat="all"])').forEach(el => el.remove());
+    Object.keys(categoriesMap).forEach(key => {
       const btn = document.createElement('button');
       btn.className = 'chip';
       btn.dataset.cat = key;
-      btn.textContent = cats[key].label;
+      btn.textContent = categoriesMap[key].label;
       row.appendChild(btn);
-    });
-    row.addEventListener('click', e => {
-      const chip = e.target.closest('.chip');
-      if(!chip) return;
-      row.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      activeCat = chip.dataset.cat;
-      renderCases();
     });
   }
 
@@ -68,13 +63,13 @@
     }
 
     grid.innerHTML = cases.map(c => {
-      const meta = DataStore.CATEGORY_META[c.category] || DataStore.CATEGORY_META.other;
+      const meta = catMeta(c.category);
       return `
       <article class="case-card" data-id="${c.id}" tabindex="0" role="button" aria-label="開啟 ${escapeHtml(c.name)}">
         <div class="cat-bar" style="background:${meta.color}"></div>
         <div class="code-row">
           <span class="code">${escapeHtml(c.code)}</span>
-          <span class="cat-label" style="background:${meta.color}">${meta.label}</span>
+          <span class="cat-label" style="background:${meta.color}">${escapeHtml(meta.label)}</span>
         </div>
         <h3>${escapeHtml(c.name)}</h3>
         ${c.latestProgress ? `
@@ -107,9 +102,69 @@
     }
   }
 
+  function populateCategorySelect(selectId){
+    const sel = document.getElementById(selectId);
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = Object.keys(categoriesMap).map(key =>
+      `<option value="${key}">${escapeHtml(categoriesMap[key].label)}</option>`
+    ).join('') + `<option value="__new__">＋ 新增類別…</option>`;
+    if(prev && categoriesMap[prev]) sel.value = prev;
+  }
+
+  async function loadCategories(){
+    try{
+      categoriesMap = await DataStore.getCategories();
+    } catch(err){
+      console.error(err);
+      categoriesMap = DataStore.CATEGORY_META;
+    }
+    renderFilters();
+    populateCategorySelect('f-category');
+  }
+
+  // ---- 篩選 chip 點擊（用事件委派，避免每次重繪都要重綁）----
+  document.getElementById('filterRow').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    document.querySelectorAll('#filterRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCat = chip.dataset.cat;
+    renderCases();
+  });
+
   document.getElementById('searchInput').addEventListener('input', e => {
     searchTerm = e.target.value.trim();
     renderCases();
+  });
+
+  // ---- 案件類別下拉：選到「新增類別」時，展開輸入框 ----
+  const categorySelect = document.getElementById('f-category');
+  const newCatRow = document.getElementById('newCatRow');
+  categorySelect.addEventListener('change', () => {
+    newCatRow.hidden = categorySelect.value !== '__new__';
+  });
+
+  document.getElementById('btnCreateCat').addEventListener('click', async () => {
+    const input = document.getElementById('f-new-cat-name');
+    const label = input.value.trim();
+    if(!label){ alert('請輸入新分類的名稱'); return; }
+    const btn = document.getElementById('btnCreateCat');
+    btn.disabled = true; btn.textContent = '新增中…';
+    try{
+      const existingCount = Object.keys(categoriesMap).length;
+      const color = DataStore.CATEGORY_COLOR_ROTATION[existingCount % DataStore.CATEGORY_COLOR_ROTATION.length];
+      const created = await DataStore.addCategory({ label, color });
+      await loadCategories();
+      categorySelect.value = created.key;
+      newCatRow.hidden = true;
+      input.value = '';
+    } catch(err){
+      console.error(err);
+      alert('新增分類失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '新增';
+    }
   });
 
   const modal = document.getElementById('addCaseModal');
@@ -120,17 +175,20 @@
   document.getElementById('btnSaveAdd').addEventListener('click', async () => {
     const name = document.getElementById('f-name').value.trim();
     if(!name){ alert('請輸入標案名稱'); return; }
+    if(categorySelect.value === '__new__'){ alert('請先按「新增」完成新分類的建立，或改選一個現有分類'); return; }
     const btn = document.getElementById('btnSaveAdd');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
       await DataStore.addCase({
         name,
         code: document.getElementById('f-code').value.trim() || ('NT-' + Date.now()),
-        category: document.getElementById('f-category').value,
+        category: categorySelect.value,
         contractAmount: Number(document.getElementById('f-contract').value) || 0,
         executedAmount: Number(document.getElementById('f-executed').value) || 0,
         dispatchedAmount: Number(document.getElementById('f-dispatched').value) || 0,
         expansionAmount: Number(document.getElementById('f-expansion').value) || 0,
+        undispatchedAmount: Number(document.getElementById('f-undispatched').value) || 0,
+        availableAmount: Number(document.getElementById('f-available').value) || 0,
         contractor: document.getElementById('f-contractor').value.trim() || '尚未決標',
         latestProgress: document.getElementById('f-progress').value.trim(),
         startDate: '', endDate: '',
@@ -152,11 +210,11 @@
     }
   }
 
-  function init(){
+  async function init(){
     updateSyncBadge();
     applyRoleUI();
     renderMarquee();
-    renderFilters();
+    await loadCategories();
     loadCasesAndRender();
   }
 

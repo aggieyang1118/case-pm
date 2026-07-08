@@ -301,7 +301,7 @@
 
   const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
 
-  // ---------------- 工程進度：垂直時間軸 ----------------
+  // ---------------- 工程進度：流程圖（卡片＋箭頭）----------------
   async function renderStageTimeline(){
     const container = document.getElementById('stageTimeline');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
@@ -323,7 +323,7 @@
       return;
     }
 
-    container.innerHTML = tasks.map(t => {
+    container.innerHTML = tasks.map((t, i) => {
       const attachHtml = (t.attachments||[]).map(a => {
         if(a.type === 'image'){
           const imgIndex = allImages.findIndex(x => x.url === a.url);
@@ -332,42 +332,46 @@
         return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
       }).join('');
 
+      const isLast = i === tasks.length - 1;
+      const connectorActive = t.status === 'done';
+
       return `
-      <div class="stage-item" data-task-id="${t.id}">
-        <div class="stage-rail">
-          <div class="stage-rail-node ${t.status}">${t.status==='done' ? '✓' : ''}</div>
-          <div class="stage-rail-line"></div>
+      <div class="stage-card status-${t.status}" data-task-id="${t.id}">
+        <div class="stage-card-head">
+          <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+          <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
         </div>
-        <div class="stage-card">
-          <div class="stage-card-head">
-            <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
-            <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+        <h4>${escapeHtml(t.name)}</h4>
+        ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+        ${t.note ? `<p class="stage-note-text">${escapeHtml(t.note)}</p>` : ''}
+        ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+        ${window.isAdmin ? `
+        <div class="stage-controls">
+          <div class="lp-status-row">
+            <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+            <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+            <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
           </div>
-          <h4>${escapeHtml(t.name)}</h4>
-          ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
-          ${t.note ? `<p class="stage-note-text">${escapeHtml(t.note)}</p>` : ''}
-          ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
-          ${window.isAdmin ? `
-          <div class="stage-controls">
-            <div class="lp-status-row">
-              <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-              <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-              <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
-            </div>
-            <label class="btn btn-ghost btn-sm stage-upload">
-              ＋ 新增照片／檔案
-              <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-            </label>
-          </div>` : ''}
-        </div>
-      </div>`;
+          <label class="btn btn-ghost btn-sm stage-upload">
+            ＋ 新增照片／檔案
+            <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+          </label>
+        </div>` : ''}
+      </div>
+      ${!isLast ? `
+      <div class="flow-connector ${connectorActive ? 'active' : ''}">
+        <svg width="20" height="34" viewBox="0 0 20 34" fill="none">
+          <path d="M10 2 V24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M3 18 L10 27 L17 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>` : ''}`;
     }).join('');
 
     container.querySelectorAll('.thumb[data-img-index]').forEach(el => {
       el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
     });
 
-    container.querySelectorAll('.stage-item').forEach(item => {
+    container.querySelectorAll('.stage-card').forEach(item => {
       const taskId = item.dataset.taskId;
 
       item.querySelectorAll('.lp-status-btn').forEach(btn => {

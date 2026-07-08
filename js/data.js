@@ -15,14 +15,18 @@
    ============================================================ */
 
 const DB_KEY = 'epm_demo_db_v1';
+const CUSTOM_CAT_KEY = 'epm_custom_categories_v1';
 
+// 內建的固定分類（目前實際在用的四種）
 const CATEGORY_META = {
-  road:     { label: '路平專案', color: '#5b8fb0' },
-  drain:    { label: '排水工程', color: '#6a9080' },
-  bridge:   { label: '橋梁維護', color: '#8087b0' },
-  facility: { label: '公共設施', color: '#c17b5f' },
-  other:    { label: '其他案件', color: '#a89a82' },
+  facility: { label: '公設', color: '#c17b5f' },
+  repair:   { label: '修補', color: '#6a9080' },
+  wuba:     { label: '五八', color: '#5b8fb0' },
+  abiao:    { label: 'A標', color: '#8087b0' },
 };
+
+// 給新分類自動輪流配色用的色票
+const CATEGORY_COLOR_ROTATION = ['#5b8fb0', '#6a9080', '#8087b0', '#c17b5f', '#a89a82', '#a4823f', '#3d7ea6'];
 
 const STAGE_LABELS = ['決標', '開工', '施工中', '驗收', '結案'];
 
@@ -33,11 +37,13 @@ function seedData(){
         id: 'c1',
         code: 'NT-2026-014',
         name: '大墩十九街人行道改善暨路平工程',
-        category: 'road',
+        category: 'wuba',
         contractAmount: 8_650_000,
         executedAmount: 5_980_000,
         dispatchedAmount: 7_200_000,
         expansionAmount: 0,
+        undispatchedAmount: 1_450_000,
+        availableAmount: 1_450_000,
         stage: 2,
         status: '施工中',
         contractor: '順成營造有限公司',
@@ -49,11 +55,13 @@ function seedData(){
         id: 'c2',
         code: 'NT-2026-021',
         name: '文心南路側溝清淤及箱涵修復工程',
-        category: 'drain',
+        category: 'repair',
         contractAmount: 4_320_000,
         executedAmount: 4_320_000,
         dispatchedAmount: 4_320_000,
         expansionAmount: 150_000,
+        undispatchedAmount: 0,
+        availableAmount: 0,
         stage: 4,
         status: '已結案',
         contractor: '福運土木工程行',
@@ -65,11 +73,13 @@ function seedData(){
         id: 'c3',
         code: 'NT-2026-033',
         name: '黎明溪橋護欄及伸縮縫更新工程',
-        category: 'bridge',
+        category: 'abiao',
         contractAmount: 6_100_000,
         executedAmount: 1_050_000,
         dispatchedAmount: 2_400_000,
         expansionAmount: 0,
+        undispatchedAmount: 3_700_000,
+        availableAmount: 3_700_000,
         stage: 1,
         status: '開工準備',
         contractor: '志堅工程股份有限公司',
@@ -86,6 +96,8 @@ function seedData(){
         executedAmount: 0,
         dispatchedAmount: 0,
         expansionAmount: 0,
+        undispatchedAmount: 3_280_000,
+        availableAmount: 3_280_000,
         stage: 0,
         status: '決標中',
         contractor: '尚未決標',
@@ -220,6 +232,19 @@ const LocalBackend = {
     return c;
   },
   async getWeeklyGlobal(){ return loadDB().weeklyGlobal; },
+  async getCategories(){
+    let custom = {};
+    try{ custom = JSON.parse(localStorage.getItem(CUSTOM_CAT_KEY) || '{}'); } catch(e){ custom = {}; }
+    return { ...CATEGORY_META, ...custom };
+  },
+  async addCategory(cat){
+    let custom = {};
+    try{ custom = JSON.parse(localStorage.getItem(CUSTOM_CAT_KEY) || '{}'); } catch(e){ custom = {}; }
+    const key = 'cat_' + Date.now().toString(36);
+    custom[key] = { label: cat.label, color: cat.color };
+    localStorage.setItem(CUSTOM_CAT_KEY, JSON.stringify(custom));
+    return { key, ...custom[key] };
+  },
   async getTasks(caseId){ return loadDB().tasks[caseId] || []; },
   async addTask(caseId, task){
     const db = loadDB();
@@ -329,6 +354,17 @@ const FirebaseBackend = {
     const snap = await window.db.collection('weeklyGlobal').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
+  async getCategories(){
+    const snap = await window.db.collection('categories').get();
+    const custom = {};
+    snap.docs.forEach(d => { custom[d.id] = d.data(); });
+    return { ...CATEGORY_META, ...custom };
+  },
+  async addCategory(cat){
+    const key = 'cat_' + Date.now().toString(36);
+    await window.db.collection('categories').doc(key).set({ label: cat.label, color: cat.color });
+    return { key, label: cat.label, color: cat.color };
+  },
   async getTasks(caseId){
     const snap = await window.db.collection('cases').doc(caseId).collection('tasks').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -393,6 +429,8 @@ const DataStore = {
   addCase(caseObj){ return backend().addCase(caseObj); },
   updateCase(caseId, patch){ return backend().updateCase(caseId, patch); },
   getWeeklyGlobal(){ return backend().getWeeklyGlobal(); },
+  getCategories(){ return backend().getCategories(); },
+  addCategory(cat){ return backend().addCategory(cat); },
   getTasks(caseId){ return backend().getTasks(caseId); },
   addTask(caseId, task){ return backend().addTask(caseId, task); },
   addAttachment(caseId, taskId, attachment){ return backend().addAttachment(caseId, taskId, attachment); },
@@ -404,6 +442,7 @@ const DataStore = {
   addTodo(caseId, todo){ return backend().addTodo(caseId, todo); },
 
   CATEGORY_META,
+  CATEGORY_COLOR_ROTATION,
   STAGE_LABELS,
   isCloud(){ return !!window.FIREBASE_ENABLED; },
 };
