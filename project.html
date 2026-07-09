@@ -44,11 +44,10 @@
     <div class="panel-head">
       <div>
         <h3>工程進度</h3>
-        <p>點選地圖上的關卡查看該階段的日期、備註與現場照片，點圖片可全螢幕檢視。</p>
+        <p>點選階段之間的連接線，可以記錄這段期間做了哪些事（例如三書送審、材料送審），依日期排序。</p>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增階段</button>
     </div>
-    <div class="stage-timeline" id="stageTimeline"><!-- injected --></div>
+    <div class="phase-stepper" id="phaseStepper"><!-- injected --></div>
   </section>
 
   <!-- 機關流程 -->
@@ -148,19 +147,25 @@
   </div>
 </div>
 
-<!-- 關卡詳情 modal（燈箱式檢視）-->
-<div class="modal-backdrop" id="stageDetailModal">
+<!-- 階段紀錄 modal（點連接線後顯示這段期間的紀錄列表）-->
+<div class="modal-backdrop" id="segmentModal">
   <div class="modal stage-detail-modal">
-    <button class="modal-close-x" id="stageDetailClose" aria-label="關閉">&times;</button>
-    <div id="stageDetailModalBody"><!-- injected --></div>
+    <button class="modal-close-x" id="segmentModalClose" aria-label="關閉">&times;</button>
+    <h3 id="segmentModalTitle">—</h3>
+    <div class="segment-list" id="segmentList"><!-- injected --></div>
+    <button class="btn btn-primary btn-sm" id="btnAddSegmentRecord" style="width:100%; margin-top:14px;">＋ 新增紀錄</button>
   </div>
 </div>
 
 <!-- 編輯階段 modal -->
 <div class="modal-backdrop" id="editTaskModal">
   <div class="modal">
-    <h3>編輯階段</h3>
-    <div class="field"><label>階段名稱</label><input type="text" id="et-name" placeholder="例：開工前置作業"></div>
+    <h3>編輯紀錄</h3>
+    <div class="field"><label>項目名稱</label><input type="text" id="et-name" placeholder="例：三書送審"></div>
+    <div class="field">
+      <label>所屬期間</label>
+      <select id="et-phase"></select>
+    </div>
     <div class="field"><label>負責單位／人員</label><input type="text" id="et-owner" placeholder="例：順成營造 / 王工務"></div>
     <div class="field">
       <label>備註（每行一項，會自動變成條列）</label>
@@ -188,8 +193,12 @@
 <!-- 新增階段 modal -->
 <div class="modal-backdrop" id="addTaskModal">
   <div class="modal">
-    <h3>新增階段</h3>
-    <div class="field"><label>階段名稱</label><input type="text" id="t-name" placeholder="例：開工前置作業"></div>
+    <h3>新增紀錄</h3>
+    <div class="field"><label>項目名稱</label><input type="text" id="t-name" placeholder="例：三書送審"></div>
+    <div class="field">
+      <label>所屬期間</label>
+      <select id="t-phase"></select>
+    </div>
     <div class="field"><label>負責單位／人員</label><input type="text" id="t-owner" placeholder="例：順成營造 / 王工務"></div>
     <div class="field">
       <label>備註（每行一項，會自動變成條列）</label>
@@ -209,7 +218,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancelTask">取消</button>
-      <button class="btn btn-primary" id="btnSaveTask">儲存階段</button>
+      <button class="btn btn-primary" id="btnSaveTask">儲存紀錄</button>
     </div>
   </div>
 </div>
