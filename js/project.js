@@ -50,7 +50,7 @@
 
     initTabs();
     populatePhaseSelects();
-    await Promise.all([renderTitleBlock(), renderKanbanBoard(), renderFlow(), renderTodos()]);
+    await Promise.all([renderTitleBlock(), renderStageTimeline(), renderFlow(), renderTodos()]);
   }
 
   function showNotFound(msg){
@@ -201,97 +201,101 @@
     document.getElementById('et-phase').innerHTML = optionsHtml;
   }
 
-  // ---------------- 優化改版：全新工程進度看板 ----------------
-  async function renderKanbanBoard() {
-    const board = document.getElementById('kanbanBoard');
-    if (!board) return;
-    board.innerHTML = ''; 
-    const stages = DataStore.STAGE_LABELS;
+  // ---------------- 全新升級：橫向滑動 Kanban 拖曳看板 ----------------
+  async function renderStageTimeline(){
+    const container = document.getElementById('phaseStepper');
+    if(!container) return;
+    
+    // 強制套用橫向滑動看板排版
+    container.className = 'kanban-board';
+    container.innerHTML = '';
 
-    // 1. 建立橫向看板欄位與新增按鈕
-    stages.forEach((stage, idx) => {
-      const col = document.createElement('div');
-      col.className = 'kanban-col';
-      const addBtnHtml = window.isAdmin ? `<button class="btn btn-ghost btn-sm add-card-btn" data-phase="${idx}" style="padding: 2px 8px; font-size: 12px; margin-left: auto;">＋</button>` : '';
-      col.innerHTML = `
-        <div style="display: flex; align-items: center; margin-bottom: 12px; width: 100%;">
-          <h3 style="margin: 0;">${stage}</h3>
-          ${addBtnHtml}
-        </div>
-        <div class="drop-zone" data-phase="${idx}"></div>
-      `;
-      board.appendChild(col);
-    });
-
-    // 2. 抓取任務資料並填入對應看板
     let tasks;
-    try {
+    try{
       tasks = await DataStore.getTasks(caseId);
-    } catch(err) {
+    } catch(err){
       console.error(err);
-      board.innerHTML = `<div class="empty-state"><h4>資料讀取失敗</h4></div>`;
+      container.innerHTML = `<div class="empty-state"><h4>資料讀取失敗</h4></div>`;
       return;
     }
-    currentTasks = tasks;
 
-    // 更新圖片集合供 Lightbox 燈箱使用
     allImages = [];
     tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
+    currentTasks = tasks;
 
-    tasks.forEach(task => {
-      const pIdx = task.phase ?? 0;
-      const zone = document.querySelector(`.drop-zone[data-phase="${pIdx}"]`);
-      if (zone) {
+    // 1. 自動依 STAGE_LABELS 建立七大欄位
+    const stages = DataStore.STAGE_LABELS;
+    stages.forEach((label, i) => {
+      const col = document.createElement('div');
+      col.className = 'kanban-col';
+      const addBtnHtml = window.isAdmin ? `<button type="button" class="kanban-add-node-btn" data-seg="${i}">＋</button>` : '';
+      col.innerHTML = `
+        <div class="kanban-col-header">
+          <span class="kanban-col-title">${escapeHtml(label)}</span>
+          ${addBtnHtml}
+        </div>
+        <div class="drop-zone" data-seg="${i}"></div>
+      `;
+      container.appendChild(col);
+    });
+
+    // 2. 放入對應的卡片項目
+    tasks.forEach(t => {
+      const segIdx = t.phase ?? 0;
+      const zone = container.querySelector(`.drop-zone[data-seg="${segIdx}"]`);
+      if(zone){
         const card = document.createElement('div');
-        card.className = 'task-card';
-        card.dataset.id = task.id;
-        
-        let statusBadge = '';
-        if(task.status === 'done') statusBadge = `<span class="status-pill done" style="font-size:10px; padding:2px 6px; margin-top:0;">已完成</span>`;
-        if(task.status === 'progress') statusBadge = `<span class="status-pill progress" style="font-size:10px; padding:2px 6px; margin-top:0;">進行中</span>`;
-        if(task.status === 'pending') statusBadge = `<span class="status-pill pending" style="font-size:10px; padding:2px 6px; margin-top:0;">未開始</span>`;
-
+        card.className = `task-card status-${t.status}`;
+        card.dataset.taskId = t.id;
         card.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-            <strong>${escapeHtml(task.name)}</strong>
-            ${statusBadge}
+          <div class="task-card-title">${escapeHtml(t.name)}</div>
+          <div class="task-card-meta">
+            <span class="status-badge ${t.status}">${escapeHtml(STATUS_LABEL[t.status] || '未開始')}</span>
+            ${t.owner ? `<span class="task-owner">${escapeHtml(t.owner)}</span>` : ''}
           </div>
-          ${task.owner ? `<small style="display:block; margin-top:4px;">負責: ${escapeHtml(task.owner)}</small>` : ''}
         `;
-        
-        card.addEventListener('click', () => openTaskDetailModal(task.id));
+        // 安全註冊事件，完全避免 HTML 雙引號、單引號逃逸造成的 SyntaxError
+        card.addEventListener('click', () => openTaskDetailModal(t.id));
         zone.appendChild(card);
       }
     });
 
-    // 綁定各看板專屬的新增按鈕
-    board.querySelectorAll('.add-card-btn').forEach(btn => {
+    // 3. 綁定各列頂端「＋」新增按鈕
+    container.querySelectorAll('.kanban-add-node-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        openAddTaskModal(Number(btn.dataset.phase));
+        openAddTaskModal(Number(btn.dataset.seg));
       });
     });
 
-    // 3. 啟用 SortableJS 看板拖曳排序功能 (限管理者)
-    if(window.isAdmin) {
-      document.querySelectorAll('.drop-zone').forEach(zone => {
+    // 4. 初始化 SortableJS 跨欄位流暢拖曳
+    if(window.isAdmin && window.Sortable){
+      container.querySelectorAll('.drop-zone').forEach(zone => {
         new Sortable(zone, {
-          group: 'shared',
+          group: 'kanban-shared',
           animation: 150,
-          onEnd: async function (evt) {
-            const taskId = evt.item.dataset.id;
-            const newPhase = Number(evt.to.dataset.phase);
-            try {
-              await DataStore.updateTask(caseId, taskId, { phase: newPhase });
-              await renderTitleBlock(); // 即時重新計算進度執行率
-            } catch(err) {
+          ghostClass: 'kanban-ghost',
+          onEnd: async function(evt) {
+            const taskId = evt.item.dataset.taskId;
+            const newSeg = Number(evt.to.dataset.seg);
+            try{
+              await DataStore.updateTask(caseId, taskId, { phase: newSeg });
+              // 拖曳完成後靜態更新全域陣列，不需整頁重新跳動刷新
+              const updatedTasks = await DataStore.getTasks(caseId);
+              currentTasks = updatedTasks;
+            } catch(err){
               console.error(err);
-              alert('移動失敗，請確認網路連線或 Firebase 設定。');
+              alert('移動儲存失敗，請檢查網路連線。');
+              renderStageTimeline();
             }
           }
         });
       });
     }
+    
+    // 移除舊版無用按鈕區
+    const holder = document.getElementById('stageManualHolder');
+    if(holder) holder.innerHTML = '';
   }
 
   function openTaskDetailModal(taskId){
@@ -358,7 +362,7 @@
         try{
           await DataStore.deleteTask(caseId, t.id);
           modal.classList.remove('open');
-          await Promise.all([renderKanbanBoard(), renderTitleBlock()]);
+          await Promise.all([renderStageTimeline(), renderTitleBlock()]);
         } catch(err){
           console.error(err);
           alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
@@ -374,8 +378,8 @@
         statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
         try{
           await DataStore.updateTaskStatus(caseId, t.id, newStatus);
-          await Promise.all([renderKanbanBoard(), renderTitleBlock()]);
-          openTaskDetailModal(t.id); 
+          await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
         } catch(err){
           console.error(err);
           alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
@@ -396,12 +400,12 @@
             label.childNodes[0].textContent = `上傳中… (${i+1}/${files.length}) `;
             await DataStore.uploadAttachment(caseId, t.id, files[i]);
           }
-          await renderKanbanBoard();
-          openTaskDetailModal(t.id); 
+          await renderStageTimeline();
+          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
         } catch(err){
           console.error(err);
-          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
-          await renderKanbanBoard();
+          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。部分檔案可能已上傳成功。');
+          await renderStageTimeline();
           openTaskDetailModal(t.id);
         }
       });
@@ -490,4 +494,390 @@
     document.getElementById('btnDeleteFlow').hidden = !f;
     flowModal.classList.add('open');
   }
-  document.getElementById('btnAddFlow').addEventListener('click', () => openFlowModal
+  document.getElementById('btnAddFlow').addEventListener('click', () => openFlowModal(null));
+  document.getElementById('btnCancelFlow').addEventListener('click', () => flowModal.classList.remove('open'));
+  flowModal.addEventListener('click', e => { if(e.target === flowModal) flowModal.classList.remove('open'); });
+
+  document.getElementById('btnSaveFlow').addEventListener('click', async () => {
+    const title = document.getElementById('fl-title').value.trim();
+    if(!title){ alert('請輸入流程名稱'); return; }
+    const stepId = flowModal.dataset.stepId;
+    const btn = document.getElementById('btnSaveFlow');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      const patch = {
+        title,
+        desc: document.getElementById('fl-desc').value.trim(),
+        status: document.getElementById('fl-status').value,
+        date: document.getElementById('fl-date').value.trim(),
+      };
+      if(stepId){
+        await DataStore.updateFlow(caseId, stepId, patch);
+      } else {
+        await DataStore.addFlow(caseId, patch);
+      }
+      flowModal.classList.remove('open');
+      await Promise.all([renderFlow(), renderStageTimeline()]);
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存';
+    }
+  });
+
+  document.getElementById('btnDeleteFlow').addEventListener('click', async () => {
+    const stepId = flowModal.dataset.stepId;
+    if(!stepId) return;
+    const ok = confirm('確定要刪除這筆機關流程紀錄嗎？此動作無法復原。');
+    if(!ok) return;
+    const btn = document.getElementById('btnDeleteFlow');
+    btn.disabled = true; btn.textContent = '刪除中…';
+    try{
+      await DataStore.deleteFlow(caseId, stepId);
+      flowModal.classList.remove('open');
+      await Promise.all([renderFlow(), renderStageTimeline()]);
+    } catch(err){
+      console.error(err);
+      alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+      btn.disabled = false; btn.textContent = '刪除';
+    }
+  });
+
+  const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
+  let calendarViewDate = new Date();
+  let allTodos = [];
+
+  function toISODate(y, m, d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
+  function todayISO(){ const d = new Date(); return toISODate(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  async function renderTodos(){
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
+    try{
+      allTodos = await DataStore.getTodos(caseId);
+    } catch(err){
+      console.error(err);
+      grid.innerHTML = `<div class="empty-state"><h4>待辦讀取失敗</h4></div>`;
+      return;
+    }
+    renderCalendarGrid();
+    setupGoogleCalendarEmbed();
+  }
+
+  function setupGoogleCalendarEmbed(){
+    if(!window.CalendarIntegration || !window.CalendarIntegration.isEmbedConfigured()) return;
+    const wrap = document.getElementById('gcalEmbedWrap');
+    const frame = document.getElementById('gcalEmbedFrame');
+    if(!frame.src) frame.src = window.CalendarIntegration.getEmbedUrl();
+    wrap.hidden = false;
+  }
+
+  function renderCalendarGrid(){
+    const grid = document.getElementById('calGrid');
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+
+    document.getElementById('calMonthLabel').textContent = `${year} 年 ${month + 1} 月`;
+
+    const firstDay = new Date(year, month, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = todayISO();
+
+    const todosByDate = {};
+    allTodos.forEach(t => {
+      const key = t.date || '';
+      if(!todosByDate[key]) todosByDate[key] = [];
+      todosByDate[key].push(t);
+    });
+
+    let html = WEEKDAY_LABELS.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+
+    for(let i = 0; i < startWeekday; i++){
+      html += `<div class="cal-day empty"></div>`;
+    }
+
+    for(let day = 1; day <= daysInMonth; day++){
+      const iso = toISODate(year, month, day);
+      const dayTodos = todosByDate[iso] || [];
+      const isToday = iso === today;
+      html += `
+        <div class="cal-day ${isToday ? 'today' : ''}" data-date="${iso}">
+          <div class="cal-day-num">${day}</div>
+          ${dayTodos.map(t => `
+            <div class="cal-chip ${t.priority} ${t.done?'done':''}" data-todo-id="${t.id}" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</div>
+          `).join('')}
+        </div>`;
+    }
+
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-chip').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditTodoModal(el.dataset.todoId);
+      });
+    });
+
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+      el.addEventListener('click', () => openAddTodoModal(el.dataset.date));
+    });
+  }
+
+  function openEditTodoModal(todoId){
+    const t = allTodos.find(x => x.id === todoId);
+    if(!t) return;
+    document.getElementById('ed-text').value = t.text || '';
+    document.getElementById('ed-due').value = t.date || '';
+    document.getElementById('ed-priority').value = t.priority || 'mid';
+    document.getElementById('ed-done').checked = !!t.done;
+    editTodoModal.dataset.todoId = todoId;
+    document.getElementById('ed-text').disabled = false;
+    document.getElementById('ed-due').disabled = false;
+    document.getElementById('ed-priority').disabled = false;
+    document.getElementById('ed-done').disabled = false;
+    document.getElementById('btnSaveEditTodo').hidden = false;
+    document.getElementById('btnDeleteTodo').hidden = false;
+    editTodoModal.classList.add('open');
+  }
+
+  document.getElementById('calPrevMonth').addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
+    renderCalendarGrid();
+  });
+  document.getElementById('calNextMonth').addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
+    renderCalendarGrid();
+  });
+
+  function openEditTaskModal(taskId){
+    const t = currentTasks.find(x => x.id === taskId);
+    if(!t) return;
+    document.getElementById('et-name').value = t.name || '';
+    document.getElementById('et-phase').value = String(t.phase ?? 0);
+    document.getElementById('et-owner').value = t.owner || '';
+    document.getElementById('et-note').value = t.note || '';
+    document.getElementById('et-start').value = t.start || '';
+    document.getElementById('et-end').value = t.end || '';
+    document.getElementById('et-status').value = t.status || 'pending';
+    editTaskModal.dataset.taskId = taskId;
+    editTaskModal.classList.add('open');
+  }
+
+  const editTaskModal = document.getElementById('editTaskModal');
+  document.getElementById('btnCancelEditTask').addEventListener('click', () => editTaskModal.classList.remove('open'));
+  editTaskModal.addEventListener('click', e => { if(e.target === editTaskModal) editTaskModal.classList.remove('open'); });
+
+  document.getElementById('btnSaveEditTask').addEventListener('click', async () => {
+    const name = document.getElementById('et-name').value.trim();
+    if(!name){ alert('請輸入項目名稱'); return; }
+    const taskId = editTaskModal.dataset.taskId;
+    const btn = document.getElementById('btnSaveEditTask');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      const newPhase = Number(document.getElementById('et-phase').value);
+      await DataStore.updateTask(caseId, taskId, {
+        name,
+        phase: newPhase,
+        owner: document.getElementById('et-owner').value.trim(),
+        note: document.getElementById('et-note').value.trim(),
+        start: document.getElementById('et-start').value,
+        end: document.getElementById('et-end').value,
+        status: document.getElementById('et-status').value,
+      });
+      editTaskModal.classList.remove('open');
+      await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+      openTaskDetailModal(taskId);
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存變更';
+    }
+  });
+
+  const taskModal = document.getElementById('addTaskModal');
+  const ADD_TASK_FIELD_IDS = ['t-name','t-owner','t-note','t-start','t-end'];
+  function resetAddTaskForm(segIdx){
+    ADD_TASK_FIELD_IDS.forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('t-status').value = 'pending';
+    document.getElementById('t-phase').value = String(segIdx ?? 0);
+  }
+  function openAddTaskModal(segIdx){
+    resetAddTaskForm(segIdx);
+    taskModal.classList.add('open');
+  }
+  document.getElementById('btnCancelTask').addEventListener('click', ()=> taskModal.classList.remove('open'));
+  taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
+  document.getElementById('btnSaveTask').addEventListener('click', async () => {
+    const name = document.getElementById('t-name').value.trim();
+    if(!name){ alert('請輸入項目名稱'); return; }
+    const btn = document.getElementById('btnSaveTask');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      const savedPhase = Number(document.getElementById('t-phase').value);
+      const created = await DataStore.addTask(caseId, {
+        name,
+        phase: savedPhase,
+        owner: document.getElementById('t-owner').value.trim(),
+        note: document.getElementById('t-note').value.trim(),
+        start: document.getElementById('t-start').value,
+        end: document.getElementById('t-end').value,
+        status: document.getElementById('t-status').value,
+      });
+      taskModal.classList.remove('open');
+      resetAddTaskForm(savedPhase);
+      await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+      if(created && created.id) openTaskDetailModal(created.id);
+    } catch(err){
+      console.error(err);
+      alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存紀錄';
+    }
+  });
+
+  const editTodoModal = document.getElementById('editTodoModal');
+  document.getElementById('btnCancelEditTodo').addEventListener('click', () => editTodoModal.classList.remove('open'));
+  editTodoModal.addEventListener('click', e => { if(e.target === editTodoModal) editTodoModal.classList.remove('open'); });
+
+  document.getElementById('btnSaveEditTodo').addEventListener('click', async () => {
+    const text = document.getElementById('ed-text').value.trim();
+    if(!text){ alert('請輸入事項內容'); return; }
+    const date = document.getElementById('ed-due').value;
+    if(!date){ alert('請選擇日期'); return; }
+    const todoId = editTodoModal.dataset.todoId;
+    const btn = document.getElementById('btnSaveEditTodo');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      await DataStore.updateTodo(caseId, todoId, {
+        text,
+        date,
+        priority: document.getElementById('ed-priority').value,
+        done: document.getElementById('ed-done').checked,
+      });
+      editTodoModal.classList.remove('open');
+      await renderTodos();
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存變更';
+    }
+  });
+
+  document.getElementById('btnDeleteTodo').addEventListener('click', async () => {
+    const ok = confirm('確定要刪除這筆待辦事項嗎？此動作無法復原。');
+    if(!ok) return;
+    const todoId = editTodoModal.dataset.todoId;
+    const btn = document.getElementById('btnDeleteTodo');
+    btn.disabled = true; btn.textContent = '刪除中…';
+    try{
+      await DataStore.deleteTodo(caseId, todoId);
+      editTodoModal.classList.remove('open');
+      await renderTodos();
+    } catch(err){
+      console.error(err);
+      alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+      btn.disabled = false; btn.textContent = '刪除事項';
+    }
+  });
+
+  const todoModal = document.getElementById('addTodoModal');
+
+  function openAddTodoModal(dateISO){
+    document.getElementById('d-text').value = '';
+    document.getElementById('d-due').value = dateISO || todayISO();
+    document.getElementById('d-priority').value = 'mid';
+    document.getElementById('d-cal-toggle').checked = false;
+    document.getElementById('calFields').hidden = true;
+    todoModal.classList.add('open');
+    const calToggleField = document.getElementById('calToggleField');
+    const isConfigured = window.CalendarIntegration && window.CalendarIntegration.isConfigured();
+    calToggleField.hidden = !isConfigured;
+  }
+
+  document.getElementById('btnAddTodo').addEventListener('click', () => openAddTodoModal(todayISO()));
+  document.getElementById('btnCancelTodo').addEventListener('click', ()=> todoModal.classList.remove('open'));
+  todoModal.addEventListener('click', e=>{ if(e.target===todoModal) todoModal.classList.remove('open'); });
+
+  document.getElementById('d-cal-toggle').addEventListener('change', (e) => {
+    document.getElementById('calFields').hidden = !e.target.checked;
+    if(e.target.checked){
+      const dateVal = document.getElementById('d-due').value || todayISO();
+      const startEl = document.getElementById('d-cal-start');
+      const endEl = document.getElementById('d-cal-end');
+      if(!startEl.value) startEl.value = `${dateVal}T09:00`;
+      if(!endEl.value) endEl.value = `${dateVal}T10:00`;
+    }
+  });
+
+  document.getElementById('btnSaveTodo').addEventListener('click', async () => {
+    const text = document.getElementById('d-text').value.trim();
+    if(!text){ alert('請輸入事項內容'); return; }
+    const date = document.getElementById('d-due').value;
+    if(!date){ alert('請選擇日期'); return; }
+
+    const wantsCalendar = document.getElementById('d-cal-toggle').checked;
+    let calStart, calEnd, calEmails;
+    if(wantsCalendar){
+      calStart = document.getElementById('d-cal-start').value;
+      calEnd = document.getElementById('d-cal-end').value;
+      calEmails = document.getElementById('d-cal-emails').value.split(',').map(s => s.trim()).filter(Boolean);
+      if(!calStart || !calEnd){ alert('請填寫日曆事件的開始與結束時間'); return; }
+      if(calEmails.length === 0){ alert('請至少填一個通知對象的 Email'); return; }
+    }
+
+    const btn = document.getElementById('btnSaveTodo');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      await DataStore.addTodo(caseId, {
+        text,
+        date,
+        priority: document.getElementById('d-priority').value,
+      });
+
+      if(wantsCalendar){
+        const popup = window.CalendarIntegration.openQuickAdd({
+          title: text,
+          description: `來自「${kase.name}」標案的待辦事項提醒。`,
+          start: calStart,
+          end: calEnd,
+          attendeeEmails: calEmails,
+        });
+        if(popup === null || popup === undefined){
+          alert('待辦事項已儲存。瀏覽器可能擋住了跳出的 Google 日曆分頁，請允許彈出視窗後再試一次，或手動到 Google 日曆新增。');
+        }
+      }
+
+      todoModal.classList.remove('open');
+      document.getElementById('d-cal-toggle').checked = false;
+      document.getElementById('calFields').hidden = true;
+      await renderTodos();
+    } catch(err){
+      console.error(err);
+      alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存事項';
+    }
+  });
+
+  function applyRoleUI(){
+    if(!window.isAdmin){
+      const btnFlow = document.getElementById('btnAddFlow');
+      if(btnFlow) btnFlow.style.display = 'none';
+    }
+  }
+
+  function init(){
+    applyRoleUI();
+    boot();
+  }
+
+  if(window.FIREBASE_ENABLED){
+    window.addEventListener('auth-ready', init, { once:true });
+  } else {
+    init();
+  }
+})();
