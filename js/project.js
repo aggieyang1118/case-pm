@@ -62,24 +62,8 @@
       </div>`;
   }
 
-  // 根據每筆紀錄所屬的「期間」(phase 0~3)，加上機關流程最後一步是否結案，自動判斷目前階段
-  function computeStage(tasks, flow){
-    if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何紀錄
-    let maxActiveSeg = -1;
-    tasks.forEach(t => {
-      if(t.status === 'done' || t.status === 'progress'){
-        const seg = t.phase ?? 0;
-        if(seg > maxActiveSeg) maxActiveSeg = seg;
-      }
-    });
-    if(maxActiveSeg === -1) return 0; // 決標：都還沒開始
-    let stage = Math.min(4, maxActiveSeg + 1);
-    if(stage === 4){
-      const lastFlow = flow && flow.length ? flow[flow.length - 1] : null;
-      if(!(lastFlow && lastFlow.status === 'done')) stage = 3; // 還沒真正結案前，維持在驗收
-    }
-    return stage;
-  }
+  // 目前階段完全依「工程進度」裡各期間的完成狀況自動判斷，
+  // 不再提供手動覆蓋的功能（畫面上也不會出現手動調整的按鈕列）。
 
   async function renderTitleBlock(){
     const contract = kase.contractAmount || 0;
@@ -282,9 +266,7 @@
         if(seg > maxActiveSeg) maxActiveSeg = seg;
       }
     });
-    const autoStage = computeStage(tasks, flow);
-    const isManual = kase.manualStage !== null && kase.manualStage !== undefined;
-    const displayStage = isManual ? kase.manualStage : (maxActiveSeg + 1);
+    const displayStage = Math.min(DataStore.STAGE_LABELS.length - 1, maxActiveSeg + 1);
 
     const stages = DataStore.STAGE_LABELS;
     let html = '';
@@ -357,68 +339,6 @@
         });
       });
     }
-
-    renderStageManualControls(isManual, displayStage);
-  }
-
-  function renderStageManualControls(isManual, displayStage){
-    const holder = document.getElementById('stageManualHolder');
-    if(!window.isAdmin){
-      holder.innerHTML = `<p class="stage-note">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依關卡完成進度自動判斷。'}</p>`;
-      return;
-    }
-    const stages = DataStore.STAGE_LABELS;
-    const pickerHtml = stages.map((label, idx) =>
-      `<button class="stage-picker-btn ${idx===displayStage?'active':''}" data-idx="${idx}">${label}</button>`
-    ).join('');
-
-    holder.innerHTML = `
-      <div class="stage-manual-row">
-        <p class="stage-note">${isManual ? '目前階段已手動設定，不會依進度自動變動。' : '目前階段依關卡完成進度自動判斷。'}</p>
-        ${isManual
-          ? `<button class="stage-link-btn" id="btnAutoStage">恢復自動判斷</button>`
-          : `<button class="stage-link-btn" id="btnManualStage">手動調整</button>`}
-      </div>
-      <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>
-    `;
-
-    const btnManual = document.getElementById('btnManualStage');
-    if(btnManual){
-      btnManual.addEventListener('click', () => {
-        document.getElementById('stagePicker').hidden = false;
-        btnManual.hidden = true;
-      });
-    }
-    const btnAuto = document.getElementById('btnAutoStage');
-    if(btnAuto){
-      btnAuto.addEventListener('click', async () => {
-        btnAuto.disabled = true;
-        try{
-          await DataStore.updateCase(caseId, { manualStage: null });
-          kase.manualStage = null;
-          await renderStageTimeline();
-        } catch(err){
-          console.error(err);
-          alert('更新失敗，請確認網路連線或 Firebase 設定。');
-          btnAuto.disabled = false;
-        }
-      });
-    }
-    holder.querySelectorAll('.stage-picker-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = Number(btn.dataset.idx);
-        holder.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = true);
-        try{
-          await DataStore.updateCase(caseId, { manualStage: idx });
-          kase.manualStage = idx;
-          await renderStageTimeline();
-        } catch(err){
-          console.error(err);
-          alert('更新失敗，請確認網路連線或 Firebase 設定。');
-          holder.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = false);
-        }
-      });
-    });
   }
 
   function openTaskDetailModal(taskId){
