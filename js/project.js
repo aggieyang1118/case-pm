@@ -24,6 +24,9 @@
   let kase = null;
   let allImages = []; // 全案照片集合，供 lightbox 上一張/下一張
   let currentTasks = []; // 目前的階段清單，供編輯 modal 查找用
+  let currentFlow = [];
+  let calendarViewDate = new Date();
+  let allTodos = [];
 
   async function boot(){
     updateSyncBadge();
@@ -144,7 +147,7 @@
         code: document.getElementById('e-code').value.trim() || kase.code,
         contractAmount: Number(document.getElementById('e-contract').value) || 0,
         executedAmount: Number(document.getElementById('e-executed').value) || 0,
-        dispatchedAmount: Number(document.getElementById('e-dispatched').value) || 0,
+        dispatchedAmount: Number(document.getElementById('f-dispatched') ? document.getElementById('f-dispatched').value : (kase.dispatchedAmount || 0)),
         expansionAmount: Number(document.getElementById('e-expansion').value) || 0,
         undispatchedAmount: Number(document.getElementById('e-undispatched').value) || 0,
         availableAmount: Number(document.getElementById('e-available').value) || 0,
@@ -206,7 +209,6 @@
     const container = document.getElementById('phaseStepper');
     if(!container) return;
     
-    // 強制套用橫向滑動看板排版
     container.className = 'kanban-board';
     container.innerHTML = '';
 
@@ -220,10 +222,9 @@
     }
 
     allImages = [];
-    tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
+    tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption: t.name + ' — ' + (a.name||'')}); }));
     currentTasks = tasks;
 
-    // 1. 自動依 STAGE_LABELS 建立七大欄位
     const stages = DataStore.STAGE_LABELS;
     stages.forEach((label, i) => {
       const col = document.createElement('div');
@@ -239,10 +240,9 @@
       container.appendChild(col);
     });
 
-    // 2. 放入對應的卡片項目
     tasks.forEach(t => {
       const segIdx = t.phase ?? 0;
-      const zone = container.querySelector(`.drop-zone[data-seg="${segIdx}"]`);
+      const zone = container.querySelector('.drop-zone[data-seg="' + segIdx + '"]');
       if(zone){
         const card = document.createElement('div');
         card.className = `task-card status-${t.status}`;
@@ -254,13 +254,11 @@
             ${t.owner ? `<span class="task-owner">${escapeHtml(t.owner)}</span>` : ''}
           </div>
         `;
-        // 安全註冊事件，完全避免 HTML 雙引號、單引號逃逸造成的 SyntaxError
         card.addEventListener('click', () => openTaskDetailModal(t.id));
         zone.appendChild(card);
       }
     });
 
-    // 3. 綁定各列頂端「＋」新增按鈕
     container.querySelectorAll('.kanban-add-node-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -268,7 +266,6 @@
       });
     });
 
-    // 4. 初始化 SortableJS 跨欄位流暢拖曳
     if(window.isAdmin && window.Sortable){
       container.querySelectorAll('.drop-zone').forEach(zone => {
         new Sortable(zone, {
@@ -280,9 +277,9 @@
             const newSeg = Number(evt.to.dataset.seg);
             try{
               await DataStore.updateTask(caseId, taskId, { phase: newSeg });
-              // 拖曳完成後靜態更新全域陣列，不需整頁重新跳動刷新
               const updatedTasks = await DataStore.getTasks(caseId);
               currentTasks = updatedTasks;
+              await renderTitleBlock();
             } catch(err){
               console.error(err);
               alert('移動儲存失敗，請檢查網路連線。');
@@ -293,7 +290,6 @@
       });
     }
     
-    // 移除舊版無用按鈕區
     const holder = document.getElementById('stageManualHolder');
     if(holder) holder.innerHTML = '';
   }
@@ -379,7 +375,7 @@
         try{
           await DataStore.updateTaskStatus(caseId, t.id, newStatus);
           await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
+          openTaskDetailModal(t.id);
         } catch(err){
           console.error(err);
           alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
@@ -397,14 +393,14 @@
         label.style.opacity = '0.5';
         try{
           for(let i = 0; i < files.length; i++){
-            label.childNodes[0].textContent = `上傳中… (${i+1}/${files.length}) `;
+            label.childNodes[0].textContent = "上傳中… (" + (i+1) + "/" + files.length + ") ";
             await DataStore.uploadAttachment(caseId, t.id, files[i]);
           }
           await renderStageTimeline();
-          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
+          openTaskDetailModal(t.id);
         } catch(err){
           console.error(err);
-          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。部分檔案可能已上傳成功。');
+          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
           await renderStageTimeline();
           openTaskDetailModal(t.id);
         }
@@ -448,8 +444,6 @@
     if(e.key === 'ArrowLeft') document.getElementById('lbPrev').click();
     if(e.key === 'ArrowRight') document.getElementById('lbNext').click();
   });
-
-  let currentFlow = [];
 
   async function renderFlow(){
     const container = document.getElementById('flowList');
@@ -544,11 +538,8 @@
     }
   });
 
-  const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
-  let calendarViewDate = new Date();
-  let allTodos = [];
-
-  function toISODate(y, m, d){ return `${y}-${pad2(m+1)}-${pad2(d)}`; }
+  function pad2(n){ return String(n).padStart(2, '0'); }
+  function toISODate(y, m, d){ return y + '-' + pad2(m+1) + '-' + pad2(d); }
   function todayISO(){ const d = new Date(); return toISODate(d.getFullYear(), d.getMonth(), d.getDate()); }
 
   async function renderTodos(){
@@ -578,7 +569,7 @@
     const year = calendarViewDate.getFullYear();
     const month = calendarViewDate.getMonth();
 
-    document.getElementById('calMonthLabel').textContent = `${year} 年 ${month + 1} 月`;
+    document.getElementById('calMonthLabel').textContent = year + " 年 " + (month + 1) + " 月";
 
     const firstDay = new Date(year, month, 1);
     const startWeekday = firstDay.getDay();
@@ -808,8 +799,8 @@
       const dateVal = document.getElementById('d-due').value || todayISO();
       const startEl = document.getElementById('d-cal-start');
       const endEl = document.getElementById('d-cal-end');
-      if(!startEl.value) startEl.value = `${dateVal}T09:00`;
-      if(!endEl.value) endEl.value = `${dateVal}T10:00`;
+      if(!startEl.value) startEl.value = dateVal + "T09:00";
+      if(!endEl.value) endEl.value = dateVal + "T10:00";
     }
   });
 
@@ -841,7 +832,7 @@
       if(wantsCalendar){
         const popup = window.CalendarIntegration.openQuickAdd({
           title: text,
-          description: `來自「${kase.name}」標案的待辦事項提醒。`,
+          description: "來自「" + kase.name + "」標案的待辦事項提醒。",
           start: calStart,
           end: calEnd,
           attendeeEmails: calEmails,
