@@ -44,7 +44,7 @@
     <div class="panel-head">
       <div>
         <h3>工程進度</h3>
-        <p>點選階段之間的連接線，可以記錄這段期間做了哪些事（例如三書送審、材料送審），依日期排序。</p>
+        <p>每個圓點代表一筆紀錄，點圓點看詳情，點連接線尾端的「＋」新增紀錄（例如三書送審、材料送審）。</p>
       </div>
     </div>
     <div class="phase-stepper" id="phaseStepper"><!-- injected --></div>
@@ -147,13 +147,11 @@
   </div>
 </div>
 
-<!-- 階段紀錄 modal（點連接線後顯示這段期間的紀錄列表）-->
-<div class="modal-backdrop" id="segmentModal">
+<!-- 紀錄詳情 modal（點時間軸上的圓點後顯示，燈箱式檢視）-->
+<div class="modal-backdrop" id="taskDetailModal">
   <div class="modal stage-detail-modal">
-    <button class="modal-close-x" id="segmentModalClose" aria-label="關閉">&times;</button>
-    <h3 id="segmentModalTitle">—</h3>
-    <div class="segment-list" id="segmentList"><!-- injected --></div>
-    <button class="btn btn-primary btn-sm" id="btnAddSegmentRecord" style="width:100%; margin-top:14px;">＋ 新增紀錄</button>
+    <button class="modal-close-x" id="taskDetailClose" aria-label="關閉">&times;</button>
+    <div id="taskDetailBody"><!-- injected --></div>
   </div>
 </div>
 
