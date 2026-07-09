@@ -14,171 +14,24 @@
    只要呼叫 DataStore 裡的函式就好，全部函式都回傳 Promise。
    ============================================================ */
 
-const DB_KEY = 'epm_demo_db_v1';
+// v2：升級版本號，讓瀏覽器裡舊的（含假範例資料的）本機儲存內容直接失效，
+// 改成全新的空白狀態，不需要使用者自己手動清除瀏覽器資料。
+const DB_KEY = 'epm_demo_db_v2';
 
 const STAGE_LABELS = ['決標', '開工前', '施工中', '竣工', '估驗', '驗收', '決算'];
 
+// 示範模式（尚未接 Firebase 時）的起始資料。
+// 故意留空：不要放任何範例標案或範例待辦事項，
+// 這樣畫面上出現的每一筆資料，一定是你自己在網站裡建立的，
+// 不會有「畫面上有、後端卻查不到」的假資料混在一起。
 function seedData(){
-  const seed = {
-    cases: [
-      {
-        id: 'c1',
-        code: 'NT-2026-014',
-        name: '大墩十九街人行道改善暨路平工程',
-        contractAmount: 8_650_000,
-        executedAmount: 5_980_000,
-        dispatchedAmount: 7_200_000,
-        expansionAmount: 0,
-        undispatchedAmount: 1_450_000,
-        availableAmount: 1_450_000,
-        contractor: '順成營造有限公司',
-        startDate: '2026-03-10',
-        endDate: '2026-09-30',
-        latestProgress: '瀝青混凝土鋪設中，預計 05/20 完成鋪面作業',
-      },
-      {
-        id: 'c2',
-        code: 'NT-2026-021',
-        name: '文心南路側溝清淤及箱涵修復工程',
-        contractAmount: 4_320_000,
-        executedAmount: 4_320_000,
-        dispatchedAmount: 4_320_000,
-        expansionAmount: 150_000,
-        undispatchedAmount: 0,
-        availableAmount: 0,
-        contractor: '福運土木工程行',
-        startDate: '2026-01-15',
-        endDate: '2026-04-20',
-        latestProgress: '已完成驗收與結算，案件結案',
-      },
-      {
-        id: 'c3',
-        code: 'NT-2026-033',
-        name: '黎明溪橋護欄及伸縮縫更新工程',
-        contractAmount: 6_100_000,
-        executedAmount: 1_050_000,
-        dispatchedAmount: 2_400_000,
-        expansionAmount: 0,
-        undispatchedAmount: 3_700_000,
-        availableAmount: 3_700_000,
-        contractor: '志堅工程股份有限公司',
-        startDate: '2026-06-01',
-        endDate: '2026-12-15',
-        latestProgress: '鋼構護欄拆除進行中，材料已送審',
-      },
-      {
-        id: 'c4',
-        code: 'NT-2026-040',
-        name: '永春國小周邊人行道及照明設施改善',
-        contractAmount: 3_280_000,
-        executedAmount: 0,
-        dispatchedAmount: 0,
-        expansionAmount: 0,
-        undispatchedAmount: 3_280_000,
-        availableAmount: 3_280_000,
-        contractor: '尚未決標',
-        startDate: '2026-08-01',
-        endDate: '2027-01-31',
-        latestProgress: '招標文件用印中，尚未公告決標',
-      },
-    ],
-    weeklyGlobal: [
-      { id:'w1', text:'黎明溪橋 — 提送開工報告至工務局', urgent:true, due:'07/10' },
-      { id:'w2', text:'大墩十九街 — 會勘路面刨除範圍', urgent:false, due:'07/11' },
-      { id:'w3', text:'文心南路案 — 結算尾款請款作業', urgent:true, due:'07/09' },
-      { id:'w4', text:'永春國小案 — 招標文件用印', urgent:false, due:'07/14' },
-      { id:'w5', text:'回覆議員陳情：南屯路口號誌案', urgent:true, due:'07/09' },
-    ],
-    tasks: {
-      c1: [
-        { id:'t0', name:'開工', phase:0, owner:'公所工務課', status:'done', start:'2026-03-10', end:'2026-03-10', note:'2026年3月10日奉核准開工，詳如開工報告函。', attachments:[
-          {type:'image', url:'https://images.unsplash.com/photo-1568992687947-868a62a9f521?w=600&q=80', name:'開工報告函'},
-        ]},
-        { id:'t1', name:'路面刨除與級配整平', phase:1, owner:'順成營造 / 王工務', status:'done', start:'2026-03-10', end:'2026-04-05', note:'刨除舊有路面至設計高程，級配壓實達 95% 以上。', attachments:[
-          {type:'image', url:'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=600&q=80', name:'刨除作業照片'},
-          {type:'image', url:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80', name:'級配整平'},
-        ]},
-        { id:'t2', name:'瀝青混凝土鋪設', phase:1, owner:'順成營造 / 王工務', status:'progress', start:'2026-04-06', end:'2026-05-20', note:'配比設計已送審核准，分兩層鋪設。', attachments:[
-          {type:'image', url:'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&q=80', name:'鋪面作業'},
-          {type:'file', name:'配比設計送審單.pdf'},
-        ]},
-        { id:'t3', name:'人行道透水鋪面施作', phase:2, owner:'順成營造 / 李技師', status:'pending', start:'2026-05-21', end:'2026-07-15', attachments:[] },
-        { id:'t4', name:'標線標誌復原', phase:2, owner:'順成營造', status:'pending', start:'2026-07-16', end:'2026-08-05', attachments:[] },
-      ],
-      c2: [
-        { id:'t5', name:'側溝清淤', phase:1, owner:'福運土木', status:'done', start:'2026-01-15', end:'2026-02-10', attachments:[
-          {type:'image', url:'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80', name:'清淤現況'},
-        ]},
-        { id:'t6', name:'箱涵結構修復', phase:1, owner:'福運土木', status:'done', start:'2026-02-11', end:'2026-03-25', attachments:[] },
-        { id:'t7', name:'驗收與結算', phase:3, owner:'公所工程科', status:'done', start:'2026-03-26', end:'2026-04-20', attachments:[
-          {type:'file', name:'驗收紀錄表.pdf'},
-        ]},
-      ],
-      c3: [
-        { id:'t8', name:'鋼構護欄拆除', phase:1, owner:'志堅工程', status:'progress', start:'2026-06-01', end:'2026-06-30', attachments:[] },
-        { id:'t9', name:'伸縮縫材料進場', phase:1, owner:'志堅工程', status:'pending', start:'2026-07-01', end:'2026-07-20', attachments:[] },
-        { id:'t10', name:'新式護欄安裝', phase:2, owner:'志堅工程', status:'pending', start:'2026-07-21', end:'2026-10-15', attachments:[] },
-      ],
-      c4: [
-        { id:'t11', name:'決標公告', phase:0, owner:'公所採購科', status:'progress', start:'2026-07-01', end:'2026-07-20', attachments:[] },
-      ],
-    },
-    flow: {
-      c1: [
-        { title:'現場會勘與需求確認', desc:'邀集里長、議員服務處與路平專案小組共同會勘，確認施作範圍與里民訴求。', status:'done', date:'2026-02-20' },
-        { title:'工程發包與決標', desc:'公開招標作業完成，由順成營造有限公司得標承作。', status:'done', date:'2026-03-05' },
-        { title:'開工與路面刨除', desc:'完成開工報告核備，進場刨除舊有路面。', status:'done', date:'2026-03-10' },
-        { title:'瀝青鋪面施作中', desc:'目前進行瀝青混凝土鋪設作業，依契約進度執行。', status:'current', date:'預計 2026-05-20 完成' },
-        { title:'竣工查驗與結算', desc:'完工後辦理初驗、複驗及請款結算作業。', status:'pending', date:'預計 2026-09-30' },
-      ],
-      c2: [
-        { title:'現場會勘與需求確認', desc:'因豪雨積淹水陳情，安排緊急會勘確認清淤範圍。', status:'done', date:'2026-01-08' },
-        { title:'工程發包與決標', desc:'採緊急採購程序決標予福運土木工程行。', status:'done', date:'2026-01-14' },
-        { title:'施工與修復作業', desc:'完成側溝清淤與箱涵結構修復。', status:'done', date:'2026-03-25' },
-        { title:'竣工查驗與結算', desc:'已完成驗收並結算尾款，案件結案。', status:'done', date:'2026-04-20' },
-      ],
-      c3: [
-        { title:'現場會勘與需求確認', desc:'橋梁定期檢測發現護欄鏽蝕，安排會勘。', status:'done', date:'2026-04-10' },
-        { title:'工程發包與決標', desc:'公開招標，由志堅工程股份有限公司得標。', status:'done', date:'2026-05-25' },
-        { title:'開工準備', desc:'辦理開工報告用印及材料送審，準備進場。', status:'current', date:'預計 2026-06-01' },
-        { title:'施工作業', desc:'護欄拆除、伸縮縫更新及安裝作業。', status:'pending', date:'預計 2026-10-15' },
-        { title:'竣工查驗與結算', desc:'完工後辦理查驗及結算。', status:'pending', date:'預計 2026-12-15' },
-      ],
-      c4: [
-        { title:'現場會勘與需求確認', desc:'配合校方及家長會需求，會勘周邊人行道及照明。', status:'done', date:'2026-05-30' },
-        { title:'工程發包與決標', desc:'招標文件用印中，預計近期公告決標。', status:'current', date:'進行中' },
-        { title:'開工', desc:'尚未開始。', status:'pending', date:'—' },
-        { title:'施工作業', desc:'尚未開始。', status:'pending', date:'—' },
-        { title:'竣工查驗與結算', desc:'尚未開始。', status:'pending', date:'—' },
-      ],
-    },
-    todos: {
-      c1: [
-        { id:'d1', text:'會勘路面刨除範圍是否需擴大', date:'2026-07-11', priority:'mid', done:false },
-        { id:'d2', text:'確認瀝青配比送審進度', date:'2026-07-12', priority:'high', done:false },
-        { id:'d3', text:'回覆里長詢問施工噪音陳情', date:'2026-07-09', priority:'high', done:true },
-      ],
-      c2: [
-        { id:'d4', text:'提送結算尾款請款單至會計室', date:'2026-07-09', priority:'high', done:false },
-      ],
-      c3: [
-        { id:'d5', text:'提送開工報告至工務局', date:'2026-07-10', priority:'high', done:false },
-        { id:'d6', text:'確認護欄材料到貨日期', date:'2026-07-16', priority:'mid', done:false },
-      ],
-      c4: [
-        { id:'d7', text:'招標文件用印', date:'2026-07-14', priority:'mid', done:false },
-      ],
-    },
+  return {
+    cases: [],
+    weeklyGlobal: [],
+    tasks: {},
+    flow: {},
+    todos: {},
   };
-
-  Object.keys(seed.flow).forEach(caseId => {
-    seed.flow[caseId].forEach((step, i) => {
-      step.id = `f_${caseId}_${i}`;
-      step.order = i;
-    });
-  });
-
-  return seed;
 }
 
 /* ------------------------------------------------------------
