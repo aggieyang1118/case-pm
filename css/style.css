@@ -333,31 +333,37 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .phase-node-label{ margin-top:9px; font-size:12.5px; font-weight:600; color: var(--ink); text-align:center; }
 
 .phase-segment{
-  flex:1; min-width: 110px; display:flex; flex-direction:column; align-items:center;
+  flex:1; min-width: 170px; display:flex; flex-direction:column; align-items:flex-start;
   padding-top:24px;
 }
 .phase-segment-line{ width:100%; height:4px; background: var(--border); border-radius:2px; }
 .phase-segment.active .phase-segment-line{ background: var(--accent); }
 
-.phase-segment-dots{ display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; margin-top:12px; min-height: 26px; }
-
-.phase-dot{
-  width:16px; height:16px; border-radius:50%; flex:none; padding:0;
-  border:2.5px solid var(--border); background: var(--surface); cursor:pointer;
-  transition: transform .15s var(--ease);
+.phase-tree{ position:relative; margin-top:14px; }
+.phase-tree-svg{ position:absolute; top:0; left:0; }
+.phase-tree-branch-dot{
+  position:absolute; left:-4px; width:8px; height:8px; border-radius:50%;
+  background: var(--ink-faint); transform: translateY(-50%);
 }
-.phase-dot:hover{ transform: scale(1.25); }
-.phase-dot.status-done{ background: var(--accent); border-color: var(--accent); }
-.phase-dot.status-progress{ background: var(--brick); border-color: var(--brick); box-shadow: 0 0 0 4px var(--brick-pale); }
-.phase-dot.status-pending{ background: var(--surface); border-color: var(--ink-faint); }
+.phase-tree-empty{ font-size:12px; color: var(--ink-faint); padding: 8px 0; }
 
-.phase-dot-add{
-  width:20px; height:20px; border-radius:50%; flex:none; padding:0;
-  border:2px dashed var(--border); background:none; color: var(--ink-faint);
-  font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; transition: all .15s var(--ease);
+.phase-tree-nodes{ position:relative; display:flex; flex-direction:column; margin-left: 66px; }
+.phase-tree-node{
+  display:flex; align-items:center; gap:8px; padding:0 12px; border-radius:999px;
+  border:1.5px solid var(--border); background: var(--surface); cursor:pointer; text-align:left;
+  font-family: var(--font-body); font-size:12px; color: var(--ink); white-space:nowrap;
+  max-width:160px; overflow:hidden; transition: border-color .15s var(--ease), transform .15s var(--ease);
 }
-.phase-dot-add:hover{ border-color: var(--accent); color: var(--accent); }
+.phase-tree-node:hover{ border-color: var(--accent); transform: scale(1.03); }
+.phase-tree-node .node-dot{ width:9px; height:9px; border-radius:50%; flex:none; border:2px solid var(--border); background: var(--surface); }
+.phase-tree-node.status-done .node-dot{ background: var(--accent); border-color: var(--accent); }
+.phase-tree-node.status-progress .node-dot{ background: var(--brick); border-color: var(--brick); }
+.phase-tree-node.status-pending .node-dot{ background: var(--surface); border-color: var(--ink-faint); }
+.phase-tree-node .node-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.phase-tree-node.add-node{ border-style:dashed; color: var(--ink-faint); }
+.phase-tree-node.add-node .node-dot{ border-style:dashed; font-size:9px; display:flex; align-items:center; justify-content:center; color: var(--ink-faint); }
+.phase-tree-node.add-node:hover{ border-color: var(--accent); color: var(--accent); }
+.phase-tree-node.add-node:hover .node-dot{ border-color: var(--accent); color: var(--accent); }
 
 .stage-card{
   background: var(--surface); border:1px solid var(--border-soft); border-radius: var(--radius-l);
