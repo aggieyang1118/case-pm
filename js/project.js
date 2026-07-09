@@ -61,7 +61,7 @@
       </div>`;
   }
 
-  // 根據階段（工項）完成狀況，加上養工流程最後一步是否結案，自動判斷目前階段
+  // 根據階段（工項）完成狀況，加上機關流程最後一步是否結案，自動判斷目前階段
   function computeStage(tasks, flow){
     if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何階段
     const total = tasks.length;
@@ -71,7 +71,7 @@
     if(doneCount === 0 && progressCount === 0) return 0; // 決標：都還沒開始
     if(doneCount === total){
       const lastFlow = flow && flow.length ? flow[flow.length - 1] : null;
-      if(lastFlow && lastFlow.status === 'done') return 4; // 結案：階段全過 + 養工流程最後一步也完成
+      if(lastFlow && lastFlow.status === 'done') return 4; // 結案：階段全過 + 機關流程最後一步也完成
       return 3; // 驗收：階段全部完成，等待結算
     }
     if(doneCount === 0 && progressCount >= 1) return 1; // 開工：第一階段剛起步
@@ -146,7 +146,7 @@
     const btnDelete = document.getElementById('btnDeleteCase');
     if(btnDelete){
       btnDelete.addEventListener('click', async () => {
-        const ok = confirm(`確定要刪除「${kase.name}」這筆標案嗎？\n這會一併刪除底下所有的工程進度、養工流程與待辦事項，且無法復原。`);
+        const ok = confirm(`確定要刪除「${kase.name}」這筆標案嗎？\n這會一併刪除底下所有的工程進度、機關流程與待辦事項，且無法復原。`);
         if(!ok) return;
         btnDelete.disabled = true; btnDelete.textContent = '刪除中…';
         try{
