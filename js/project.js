@@ -289,6 +289,43 @@
   }
 
   // ---------------- 工程進度：大階段軸 ＋ 期間紀錄清單 ----------------
+  const TREE_ROW_H = 40; // 每個節點列高（含間距），要跟 CSS 對得上
+  const TREE_NODE_X = 66; // 分支點到節點的水平距離
+
+  function buildSegmentTreeHtml(segTasks, segIdx){
+    const nodeCount = segTasks.length + (window.isAdmin ? 1 : 0); // 含「新增」節點
+    if(nodeCount === 0) return '<div class="phase-tree-empty">尚無紀錄</div>';
+
+    const totalH = nodeCount * TREE_ROW_H;
+    const branchY = totalH / 2;
+
+    let paths = '';
+    for(let i = 0; i < nodeCount; i++){
+      const nodeY = i * TREE_ROW_H + TREE_ROW_H / 2;
+      paths += `<path d="M 0 ${branchY} C ${TREE_NODE_X*0.5} ${branchY}, ${TREE_NODE_X*0.5} ${nodeY}, ${TREE_NODE_X} ${nodeY}" fill="none" stroke="var(--border)" stroke-width="2"/>`;
+    }
+
+    const nodesHtml = segTasks.map(t => `
+      <button type="button" class="phase-tree-node status-${t.status}" data-task-id="${t.id}" style="height:${TREE_ROW_H}px;">
+        <span class="node-dot"></span>
+        <span class="node-label">${escapeHtml(t.name)}</span>
+      </button>`).join('')
+      + (window.isAdmin ? `
+      <button type="button" class="phase-tree-node add-node" data-seg="${segIdx}" style="height:${TREE_ROW_H}px;">
+        <span class="node-dot">＋</span>
+        <span class="node-label">新增紀錄</span>
+      </button>` : '');
+
+    return `
+      <div class="phase-tree" style="height:${totalH}px;">
+        <svg class="phase-tree-svg" width="${TREE_NODE_X}" height="${totalH}" viewBox="0 0 ${TREE_NODE_X} ${totalH}">
+          ${paths}
+        </svg>
+        <div class="phase-tree-branch-dot" style="top:${branchY}px;"></div>
+        <div class="phase-tree-nodes">${nodesHtml}</div>
+      </div>`;
+  }
+
   async function renderStageTimeline(){
     const container = document.getElementById('phaseStepper');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
@@ -326,24 +363,20 @@
       if(i < stages.length - 1){
         const segActive = i <= maxActiveSeg;
         const segTasks = tasks.filter(t => (t.phase ?? 0) === i).sort((a,b) => (a.start||'').localeCompare(b.start||''));
-        const dotsHtml = segTasks.map(t => `<button type="button" class="phase-dot status-${t.status}" data-task-id="${t.id}" title="${escapeHtml(t.name)}"></button>`).join('');
         html += `
           <div class="phase-segment ${segActive?'active':''}" data-seg="${i}">
             <div class="phase-segment-line"></div>
-            <div class="phase-segment-dots">
-              ${dotsHtml}
-              ${window.isAdmin ? `<button type="button" class="phase-dot-add" data-seg="${i}" title="新增紀錄">＋</button>` : ''}
-            </div>
+            ${buildSegmentTreeHtml(segTasks, i)}
           </div>`;
       }
     });
 
     container.innerHTML = html;
 
-    container.querySelectorAll('.phase-dot').forEach(el => {
+    container.querySelectorAll('.phase-tree-node[data-task-id]').forEach(el => {
       el.addEventListener('click', () => openTaskDetailModal(el.dataset.taskId));
     });
-    container.querySelectorAll('.phase-dot-add').forEach(el => {
+    container.querySelectorAll('.phase-tree-node.add-node').forEach(el => {
       el.addEventListener('click', () => openAddTaskModal(Number(el.dataset.seg)));
     });
   }
@@ -383,7 +416,7 @@
         <div class="stage-controls-row">
           <label class="btn btn-ghost btn-sm stage-upload">
             ＋ 新增照片／檔案
-            <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+            <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none" data-upload-for="${t.id}">
           </label>
           <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯</button>
           <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除</button>
@@ -441,18 +474,23 @@
     const uploadInput = body.querySelector('input[data-upload-for]');
     if(uploadInput){
       uploadInput.addEventListener('change', async e => {
-        const file = e.target.files[0];
-        if(!file) return;
+        const files = Array.from(e.target.files || []);
+        if(files.length === 0) return;
         const label = body.querySelector('.stage-upload');
         label.style.opacity = '0.5';
+        const originalText = label.textContent.trim();
         try{
-          await DataStore.uploadAttachment(caseId, t.id, file);
+          for(let i = 0; i < files.length; i++){
+            label.childNodes[0].textContent = `上傳中… (${i+1}/${files.length}) `;
+            await DataStore.uploadAttachment(caseId, t.id, files[i]);
+          }
           await renderStageTimeline();
           openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
         } catch(err){
           console.error(err);
-          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
-          label.style.opacity = '1';
+          alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。部分檔案可能已上傳成功。');
+          await renderStageTimeline();
+          openTaskDetailModal(t.id);
         }
       });
     }
