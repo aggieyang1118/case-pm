@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>標案詳情｜工程案件管理</title>
 <link rel="stylesheet" href="css/style.css">
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  
 </head>
-  <div id="kanbanBoard" class="kanban-board"> </div>
 <body>
 
 <div id="appRoot" style="visibility:hidden;">
@@ -30,30 +27,25 @@
     <a href="index.html">案件總覽</a><span class="sep">/</span><span class="current" id="crumbName">—</span>
   </nav>
 
-  <!-- 圖框標題欄 -->
   <section class="title-block" id="titleBlock">
-    <!-- injected -->
-  </section>
+    </section>
 
-  <!-- 頁籤 -->
   <div class="tabs" role="tablist">
     <button class="tab-btn active" data-tab="net" role="tab">工程進度</button>
     <button class="tab-btn" data-tab="flow" role="tab">機關流程</button>
     <button class="tab-btn" data-tab="todo" role="tab">本周待做事項</button>
   </div>
 
-  <!-- 工程進度 -->
   <section class="tab-panel active" id="panel-net">
     <div class="panel-head">
       <div>
-        <h3>工程進度</h3>
-        <p>每個圓點代表一筆紀錄，點圓點看詳情，點連接線尾端的「＋」新增紀錄（例如三書送審、材料送審）。</p>
+        <h3>工程進度看板</h3>
+        <p>滑鼠按住項目卡片即可左右拖移調整階段，點擊卡片可檢視詳細紀錄或上傳照片。</p>
       </div>
     </div>
-    <div class="phase-stepper" id="phaseStepper"><!-- injected --></div>
+    <div id="phaseStepper"></div>
   </section>
 
-  <!-- 機關流程 -->
   <section class="tab-panel" id="panel-flow">
     <div class="panel-head">
       <div>
@@ -62,26 +54,15 @@
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddFlow">＋ 新增流程</button>
     </div>
-    <div class="flow-list" id="flowList"><!-- injected --></div>
+    <div class="flow-list" id="flowList"></div>
   </section>
 
-  <!-- 本周待做事項 -->
   <section class="tab-panel" id="panel-todo">
     <div class="panel-head">
       <div>
         <h3>本周待做事項</h3>
-        <p>點日期新增當天的事項，點事項可標記完成。跟前面一樣可以選擇同步到 Google 日曆。</p>
+        <p>點日期新增當天的事項，點事項可標記完成。可選擇同步到 Google 日曆。</p>
       </div>
-<div class="calendar-embed-container" style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-  <h3>本週進度概覽</h3>
-  <iframe 
-    src="https://calendar.google.com/calendar/embed?src=你的日曆ID&ctz=Asia/Taipei" 
-    style="border: 0; width: 100%; height: 600px;" 
-    frameborder="0" 
-    scrolling="no">
-  </iframe>
-</div>
-      
       <button class="btn btn-sm btn-primary" id="btnAddTodo">＋ 新增事項</button>
     </div>
     <div class="cal-header">
@@ -89,12 +70,12 @@
       <h4 id="calMonthLabel">—</h4>
       <button class="btn btn-ghost btn-sm" id="calNextMonth" aria-label="下個月">›</button>
     </div>
-    <div class="cal-grid" id="calGrid"><!-- injected --></div>
+    <div class="cal-grid" id="calGrid"></div>
 
     <div class="gcal-embed-wrap" id="gcalEmbedWrap" hidden>
       <div class="gcal-embed-head">
         <h4>Google 日曆（即時檢視）</h4>
-        <p>這是嵌入你 Google 日曆的即時畫面，僅供檢視，新增事項還是請用上方「＋新增事項」。</p>
+        <p>這是嵌入你 Google 日曆的即時畫面，僅供檢視。新增事項請使用上方「＋新增事項」按紐。</p>
       </div>
       <iframe id="gcalEmbedFrame" class="gcal-embed-iframe" src="" loading="lazy" title="Google 日曆"></iframe>
     </div>
@@ -103,7 +84,6 @@
   <div class="foot">Create by Aggie Yang</div>
 </div>
 
-<!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <button class="lb-close" id="lbClose" aria-label="關閉">&times;</button>
   <button class="lb-nav lb-prev" id="lbPrev" aria-label="上一張">&#8249;</button>
@@ -112,7 +92,6 @@
   <div class="lb-caption" id="lbCaption"></div>
 </div>
 
-<!-- 編輯標案 modal -->
 <div class="modal-backdrop" id="editCaseModal">
   <div class="modal">
     <h3>編輯標案</h3>
@@ -169,7 +148,6 @@
   </div>
 </div>
 
-<!-- 機關流程 新增/編輯 modal -->
 <div class="modal-backdrop" id="flowModal">
   <div class="modal">
     <h3 id="flowModalTitle">新增流程</h3>
@@ -194,15 +172,13 @@
   </div>
 </div>
 
-<!-- 紀錄詳情 modal（點時間軸上的圓點後顯示，燈箱式檢視）-->
 <div class="modal-backdrop" id="taskDetailModal">
   <div class="modal stage-detail-modal">
     <button class="modal-close-x" id="taskDetailClose" aria-label="關閉">&times;</button>
-    <div id="taskDetailBody"><!-- injected --></div>
+    <div id="taskDetailBody"></div>
   </div>
 </div>
 
-<!-- 編輯階段 modal -->
 <div class="modal-backdrop" id="editTaskModal">
   <div class="modal">
     <h3>編輯紀錄</h3>
@@ -235,7 +211,6 @@
   </div>
 </div>
 
-<!-- 新增階段 modal -->
 <div class="modal-backdrop" id="addTaskModal">
   <div class="modal">
     <h3>新增紀錄</h3>
@@ -268,7 +243,6 @@
   </div>
 </div>
 
-<!-- 編輯待辦 modal -->
 <div class="modal-backdrop" id="editTodoModal">
   <div class="modal">
     <h3>編輯本周待辦</h3>
@@ -298,7 +272,6 @@
   </div>
 </div>
 
-<!-- 新增待辦 modal -->
 <div class="modal-backdrop" id="addTodoModal">
   <div class="modal">
     <h3>新增本周待辦</h3>
@@ -339,9 +312,8 @@
   </div>
 </div>
 
-</div><!-- /#appRoot -->
-
-<script src="js/calendar.js"></script>
+</div><script src="js/calendar.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
