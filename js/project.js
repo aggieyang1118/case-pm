@@ -25,6 +25,8 @@
   let allImages = []; // 全案照片集合，供 lightbox 上一張/下一張
   let currentTasks = []; // 目前的階段清單，供編輯 modal 查找用
   let currentFlow = [];
+  
+  const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
   let calendarViewDate = new Date();
   let allTodos = [];
 
@@ -151,7 +153,7 @@
         expansionAmount: Number(document.getElementById('e-expansion').value) || 0,
         undispatchedAmount: Number(document.getElementById('e-undispatched').value) || 0,
         availableAmount: Number(document.getElementById('e-available').value) || 0,
-        contractor: document.getElementById('e-contractor').value.trim() || '尚未決標',
+        contractor: document.getElementById('e-contractor').value.trim() || '廠商名稱',
         latestProgress: document.getElementById('e-progress').value.trim(),
       };
       await DataStore.updateCase(caseId, patch);
@@ -204,7 +206,7 @@
     document.getElementById('et-phase').innerHTML = optionsHtml;
   }
 
-  // ---------------- 全新升級：橫向滑動 Kanban 拖曳看板 ----------------
+  // ---------------- 橫向滑動 Kanban 拖曳看板 ----------------
   async function renderStageTimeline(){
     const container = document.getElementById('phaseStepper');
     if(!container) return;
@@ -804,6 +806,7 @@
     }
   });
 
+  // 🔥 優化同步連動版：儲存事項時自動連動推送到「首頁跑馬燈」與 Google日曆
   document.getElementById('btnSaveTodo').addEventListener('click', async () => {
     const text = document.getElementById('d-text').value.trim();
     if(!text){ alert('請輸入事項內容'); return; }
@@ -823,12 +826,22 @@
     const btn = document.getElementById('btnSaveTodo');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
+      // 1. 同步寫入本案待辦日曆
       await DataStore.addTodo(caseId, {
         text,
         date,
         priority: document.getElementById('d-priority').value,
       });
 
+      // 2. 自動智慧同步推送到「首頁跑馬燈」
+      const shortName = kase.name.length > 10 ? kase.name.slice(0, 10) + '...' : kase.name;
+      await DataStore.addWeeklyItem({
+        text: `【${shortName}】${text}`,
+        due: fmtDate(date),
+        urgent: document.getElementById('d-priority').value === 'high'
+      });
+
+      // 3. 同步觸發 Google 日曆一鍵新增
       if(wantsCalendar){
         const popup = window.CalendarIntegration.openQuickAdd({
           title: text,
@@ -838,7 +851,7 @@
           attendeeEmails: calEmails,
         });
         if(popup === null || popup === undefined){
-          alert('待辦事項已儲存。瀏覽器可能擋住了跳出的 Google 日曆分頁，請允許彈出視窗後再試一次，或手動到 Google 日曆新增。');
+          alert('待辦事項與跑馬燈已同步儲存。但瀏覽器擋住了跳出的 Google 日曆分頁，請允許彈出視窗。');
         }
       }
 
