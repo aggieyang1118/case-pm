@@ -35,7 +35,7 @@
   <!-- 頁籤 -->
   <div class="tabs" role="tablist">
     <button class="tab-btn active" data-tab="net" role="tab">工程進度</button>
-    <button class="tab-btn" data-tab="flow" role="tab">養工流程</button>
+    <button class="tab-btn" data-tab="flow" role="tab">機關流程</button>
     <button class="tab-btn" data-tab="todo" role="tab">本周待做事項</button>
   </div>
 
@@ -44,7 +44,7 @@
     <div class="panel-head">
       <div>
         <h3>工程進度</h3>
-        <p>點選查看該階段的日期、備註與現場照片，點圖片可全螢幕檢視。</p>
+        <p>點選地圖上的關卡查看該階段的日期、備註與現場照片，點圖片可全螢幕檢視。</p>
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddTask">＋ 新增階段</button>
     </div>
@@ -56,6 +56,7 @@
     <div class="panel-head">
       <div>
         <h3>機關流程</h3>
+        <p>從會勘、決標到竣工結算的完整流程紀錄。</p>
       </div>
     </div>
     <div class="flow-list" id="flowList"><!-- injected --></div>
@@ -66,7 +67,7 @@
     <div class="panel-head">
       <div>
         <h3>本周待做事項</h3>
-        <p>點日期新增當天的事項，點事項可標記完成。可以選擇同步到 Google 日曆。</p>
+        <p>點日期新增當天的事項，點事項可標記完成。跟前面一樣可以選擇同步到 Google 日曆。</p>
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddTodo">＋ 新增事項</button>
     </div>
@@ -295,7 +296,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script src="js/firebase-config.js"></script>
-  
 <script src="js/auth-guard.js"></script>
 <script src="js/data.js"></script>
 <script src="js/project.js"></script>
