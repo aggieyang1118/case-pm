@@ -1,106 +1,81 @@
 /* ============================================================
-   calendar.js — Google 日曆整合
+   calendar.js — Google 日曆整合（改版：不用 OAuth，直接開 Google 日曆）
    ------------------------------------------------------------
-   功能：在「本周待做事項」新增一筆事項時，可以同時選擇建立一個
-   Google 日曆事件，並把主任（或任何人）的 Email 加進「參與者」，
-   Google 會自動寄邀請信、對方日曆也會自動出現這個提醒——
-   這就是你要的「新增後自動通知對方」。
+   之前用 Google Calendar API + OAuth 登入的方式常常卡住
+   （需要專案在「測試中」名單裡才能用、Client ID 設定容易出錯），
+   改成更單純可靠的做法：
 
-   設定步驟（只有你需要做一次）：
+   「新增本周待辦」時如果勾選同步日曆，會直接開一個新分頁，
+   跳到 Google 日曆本身的「新增活動」畫面，內容都已經幫你填好
+   （標題、時間、備註、受邀者），你只要按一下「儲存」，
+   Google 日曆就會自動寄邀請信給受邀者——完全不需要任何 API 設定，
+   只要你瀏覽器本身已經登入 Google 帳號就能用。
 
-   1. 前往 https://console.cloud.google.com
-      建立一個新專案（或沿用既有的）
+   ------------------------------------------------------------
+   如果你還想在網站畫面上直接「嵌入」看到日曆本身（唯讀檢視），
+   可以另外設定下面的 GOOGLE_CALENDAR_EMBED_ID，步驟如下：
 
-   2. 左側選單「API 和服務」→「已啟用的 API 和服務」→
-      「＋啟用 API 和服務」→ 搜尋「Google Calendar API」→ 啟用
+   1. 打開 Google 日曆網頁版
+   2. 左側「其他日曆」旁邊，找到你要嵌入的那個日曆 → 點三個點 →
+      「設定與共用」
+   3. 往下捲到「與特定人員共用」：把你和同事的 Google 帳號加進去，
+      這樣才看得到彼此的行程（不想公開給任何人看的話，只做這步就好）
+   4. 如果不介意「任何人只要有連結就能看到」，可以改成往下捲到
+      「開放共用設定」，開啟「公開」——不過這樣任何人都能看到日曆
+      內容，公部門使用請謹慎評估這一點再決定要不要開
+   5. 再往下捲到「整合日曆」區塊，「嵌入程式碼」裡面
+      src="https://calendar.google.com/calendar/embed?src=XXXXX..."
+      這個 XXXXX 那段（到 & 符號前）就是日曆 ID，把它複製貼到下面
+      GOOGLE_CALENDAR_EMBED_ID
 
-   3. 左側選單「API 和服務」→「憑證」→「＋建立憑證」→
-      「OAuth 用戶端 ID」
-      - 應用程式類型選「網頁應用程式」
-      - 「已授權的 JavaScript 來源」填你的網站網址，例如：
-        https://aggieyang1118.github.io
-      - 建立後會拿到一組「用戶端 ID」(Client ID)，複製它
-
-   4. 如果是第一次設定，可能會先要求你設定「OAuth 同意畫面」，
-      使用者類型選「外部」，應用程式名稱、支援 Email 隨意填，
-      「測試使用者」記得把你和同事的 Google 帳號都加進去
-      （測試模式下，只有加入名單的帳號能使用這個功能）
-
-   5. 把下面 GOOGLE_CLIENT_ID 換成你複製的用戶端 ID，存檔上傳
-
-   完成以上設定前，這個功能會保持隱藏，不會影響網站其他功能。
+   沒設定 GOOGLE_CALENDAR_EMBED_ID 之前，嵌入區塊不會顯示，
+   只會用本網站內建的月曆畫面，不影響任何現有功能。
    ============================================================ */
 
-const GOOGLE_CLIENT_ID = "1040125598870-vtrs6f3ebnqu65ats32j692la5k4q565.apps.googleusercontent.com";
-const CALENDAR_SCOPES = "https://www.googleapis.com/auth/calendar.events";
+const GOOGLE_CALENDAR_EMBED_ID = ""; // 貼上你的 Google 日曆 ID（選用）
 
-let tokenClient = null;
-let gapiReady = false;
-let gisReady = false;
+function pad2(n){ return String(n).padStart(2, '0'); }
 
-window.gapiLoaded = function () {
-  gapi.load('client', async () => {
-    try {
-      await gapi.client.init({
-        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-      });
-      gapiReady = true;
-    } catch (err) {
-      console.warn('Google Calendar API 載入失敗：', err);
-    }
-  });
-};
-
-window.gisLoaded = function () {
-  if (!GOOGLE_CLIENT_ID) return;
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: CALENDAR_SCOPES,
-    callback: '', // 每次請求時動態指定
-  });
-  gisReady = true;
-};
-
-function ensureAuth() {
-  return new Promise((resolve, reject) => {
-    if (!GOOGLE_CLIENT_ID) { reject(new Error('尚未設定 Google Client ID')); return; }
-    if (!gapiReady || !gisReady) { reject(new Error('Google 服務尚未載入完成，請稍後再試一次')); return; }
-
-    tokenClient.callback = (resp) => {
-      if (resp.error) { reject(resp); return; }
-      resolve(resp);
-    };
-
-    if (gapi.client.getToken() === null) {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
-    } else {
-      tokenClient.requestAccessToken({ prompt: '' });
-    }
-  });
+// 把 <input type="datetime-local"> 的值 (YYYY-MM-DDTHH:mm) 轉成
+// Google 日曆網址需要的格式 YYYYMMDDTHHmmSS
+function toGCalDateTime(localDateTime){
+  if(!localDateTime) return '';
+  const digits = localDateTime.replace(/[-:]/g, '');
+  return digits.length === 13 ? digits + '00' : digits; // 補上秒數
 }
 
-async function createCalendarEvent({ title, description, start, end, attendeeEmails }) {
-  await ensureAuth();
+function buildQuickAddUrl({ title, description, start, end, attendeeEmails }){
+  const params = new URLSearchParams();
+  params.set('action', 'TEMPLATE');
+  params.set('text', title || '');
+  if(start && end){
+    params.set('dates', `${toGCalDateTime(start)}/${toGCalDateTime(end)}`);
+  }
+  if(description) params.set('details', description);
+  if(attendeeEmails && attendeeEmails.length){
+    params.set('add', attendeeEmails.join(','));
+  }
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
 
-  const event = {
-    summary: title,
-    description: description || '',
-    start: { dateTime: start, timeZone: 'Asia/Taipei' },
-    end: { dateTime: end, timeZone: 'Asia/Taipei' },
-    attendees: (attendeeEmails || []).map(email => ({ email })),
-    reminders: { useDefault: true },
-  };
+function openQuickAdd(opts){
+  const url = buildQuickAddUrl(opts);
+  return window.open(url, '_blank', 'noopener');
+}
 
-  const response = await gapi.client.calendar.events.insert({
-    calendarId: 'primary',
-    resource: event,
-    sendUpdates: 'all', // 這裡就是自動寄信通知參與者的關鍵設定
-  });
+function isEmbedConfigured(){
+  return !!GOOGLE_CALENDAR_EMBED_ID;
+}
 
-  return response.result;
+function getEmbedUrl(){
+  if(!GOOGLE_CALENDAR_EMBED_ID) return '';
+  const src = encodeURIComponent(GOOGLE_CALENDAR_EMBED_ID);
+  return `https://calendar.google.com/calendar/embed?src=${src}&ctz=Asia%2FTaipei&mode=MONTH&showTitle=0&showCalendars=0&showTz=0`;
 }
 
 window.CalendarIntegration = {
-  isConfigured() { return !!GOOGLE_CLIENT_ID; },
-  createEvent: createCalendarEvent,
+  isConfigured(){ return true; }, // 快速新增連結不需要事先設定，永遠可用
+  openQuickAdd,
+  isEmbedConfigured,
+  getEmbedUrl,
 };

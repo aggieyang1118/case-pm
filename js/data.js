@@ -19,7 +19,7 @@ const DB_KEY = 'epm_demo_db_v1';
 const STAGE_LABELS = ['決標', '開工前', '施工中', '竣工', '估驗', '驗收', '決算'];
 
 function seedData(){
-  return {
+  const seed = {
     cases: [
       {
         id: 'c1',
@@ -170,6 +170,15 @@ function seedData(){
       ],
     },
   };
+
+  Object.keys(seed.flow).forEach(caseId => {
+    seed.flow[caseId].forEach((step, i) => {
+      step.id = `f_${caseId}_${i}`;
+      step.order = i;
+    });
+  });
+
+  return seed;
 }
 
 /* ------------------------------------------------------------
@@ -216,6 +225,24 @@ const LocalBackend = {
     saveDB(db);
   },
   async getWeeklyGlobal(){ return loadDB().weeklyGlobal; },
+  async addWeeklyItem(item){
+    const db = loadDB();
+    item.id = 'w' + Date.now();
+    db.weeklyGlobal.push(item);
+    saveDB(db);
+    return item;
+  },
+  async updateWeeklyItem(itemId, patch){
+    const db = loadDB();
+    const item = db.weeklyGlobal.find(w => w.id === itemId);
+    if(item){ Object.assign(item, patch); saveDB(db); }
+    return item;
+  },
+  async deleteWeeklyItem(itemId){
+    const db = loadDB();
+    db.weeklyGlobal = db.weeklyGlobal.filter(w => w.id !== itemId);
+    saveDB(db);
+  },
   async getTasks(caseId){ return loadDB().tasks[caseId] || []; },
   async addTask(caseId, task){
     const db = loadDB();
@@ -250,6 +277,26 @@ const LocalBackend = {
     return task;
   },
   async getFlow(caseId){ return loadDB().flow[caseId] || []; },
+  async addFlow(caseId, step){
+    const db = loadDB();
+    if(!db.flow[caseId]) db.flow[caseId] = [];
+    step.id = 'f' + Date.now();
+    step.order = db.flow[caseId].length;
+    db.flow[caseId].push(step);
+    saveDB(db);
+    return step;
+  },
+  async updateFlow(caseId, stepId, patch){
+    const db = loadDB();
+    const item = (db.flow[caseId]||[]).find(f => f.id === stepId);
+    if(item){ Object.assign(item, patch); saveDB(db); }
+    return item;
+  },
+  async deleteFlow(caseId, stepId){
+    const db = loadDB();
+    db.flow[caseId] = (db.flow[caseId]||[]).filter(f => f.id !== stepId);
+    saveDB(db);
+  },
   async getTodos(caseId){ return loadDB().todos[caseId] || []; },
   async toggleTodo(caseId, todoId){
     const db = loadDB();
@@ -330,6 +377,19 @@ const FirebaseBackend = {
     const snap = await window.db.collection('weeklyGlobal').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
+  async addWeeklyItem(item){
+    const ref = await window.db.collection('weeklyGlobal').add(item);
+    return { id: ref.id, ...item };
+  },
+  async updateWeeklyItem(itemId, patch){
+    const ref = window.db.collection('weeklyGlobal').doc(itemId);
+    await ref.update(patch);
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
+  async deleteWeeklyItem(itemId){
+    await window.db.collection('weeklyGlobal').doc(itemId).delete();
+  },
   async getTasks(caseId){
     const snap = await window.db.collection('cases').doc(caseId).collection('tasks').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -362,7 +422,22 @@ const FirebaseBackend = {
   },
   async getFlow(caseId){
     const snap = await window.db.collection('cases').doc(caseId).collection('flow').orderBy('order').get();
-    return snap.docs.map(d => d.data());
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  async addFlow(caseId, step){
+    const snap = await window.db.collection('cases').doc(caseId).collection('flow').get();
+    step.order = snap.size;
+    const ref = await window.db.collection('cases').doc(caseId).collection('flow').add(step);
+    return { id: ref.id, ...step };
+  },
+  async updateFlow(caseId, stepId, patch){
+    const ref = window.db.collection('cases').doc(caseId).collection('flow').doc(stepId);
+    await ref.update(patch);
+    const doc = await ref.get();
+    return { id: doc.id, ...doc.data() };
+  },
+  async deleteFlow(caseId, stepId){
+    await window.db.collection('cases').doc(caseId).collection('flow').doc(stepId).delete();
   },
   async getTodos(caseId){
     const snap = await window.db.collection('cases').doc(caseId).collection('todos').get();
@@ -413,6 +488,9 @@ const DataStore = {
   updateCase(caseId, patch){ return backend().updateCase(caseId, patch); },
   deleteCase(caseId){ return backend().deleteCase(caseId); },
   getWeeklyGlobal(){ return backend().getWeeklyGlobal(); },
+  addWeeklyItem(item){ return backend().addWeeklyItem(item); },
+  updateWeeklyItem(itemId, patch){ return backend().updateWeeklyItem(itemId, patch); },
+  deleteWeeklyItem(itemId){ return backend().deleteWeeklyItem(itemId); },
   getTasks(caseId){ return backend().getTasks(caseId); },
   addTask(caseId, task){ return backend().addTask(caseId, task); },
   deleteTask(caseId, taskId){ return backend().deleteTask(caseId, taskId); },
@@ -421,6 +499,9 @@ const DataStore = {
   updateTask(caseId, taskId, patch){ return backend().updateTask(caseId, taskId, patch); },
   uploadAttachment(caseId, taskId, file){ return backend().uploadAttachment(caseId, taskId, file); },
   getFlow(caseId){ return backend().getFlow(caseId); },
+  addFlow(caseId, step){ return backend().addFlow(caseId, step); },
+  updateFlow(caseId, stepId, patch){ return backend().updateFlow(caseId, stepId, patch); },
+  deleteFlow(caseId, stepId){ return backend().deleteFlow(caseId, stepId); },
   getTodos(caseId){ return backend().getTodos(caseId); },
   toggleTodo(caseId, todoId){ return backend().toggleTodo(caseId, todoId); },
   updateTodo(caseId, todoId, patch){ return backend().updateTodo(caseId, todoId, patch); },

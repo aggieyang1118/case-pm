@@ -170,6 +170,32 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   font-size: 11px; padding: 2px 8px; border-radius: 4px;
   border:1px solid var(--border); color: var(--ink-soft); font-family: var(--font-num);
 }
+
+.marquee-settings-btn{
+  flex:none; width:46px; border:none; border-left:1px solid var(--border-soft);
+  background: var(--surface-alt); color: var(--ink-faint); font-size:16px; cursor:pointer;
+  transition: color .15s var(--ease), background .15s var(--ease);
+}
+.marquee-settings-btn:hover{ color: var(--accent); background: var(--accent-pale); }
+
+.marquee-edit-list{ display:flex; flex-direction:column; gap:8px; max-height:40vh; overflow-y:auto; margin-bottom:14px; }
+.marquee-edit-item{
+  display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--border-soft);
+  border-radius: var(--radius-s); background: var(--surface-alt);
+}
+.marquee-edit-item .mq-item-text{ flex:1; font-size:13px; color: var(--ink); }
+.marquee-edit-item .mq-item-due{ font-family: var(--font-num); font-size:11.5px; color: var(--ink-faint); flex:none; }
+.marquee-edit-item .mq-item-urgent{ color: var(--brick); font-size:11px; font-weight:600; flex:none; }
+.marquee-edit-item .mq-item-delete{
+  flex:none; background:none; border:none; color: var(--ink-faint); font-size:16px; line-height:1; cursor:pointer; padding:2px 4px;
+}
+.marquee-edit-item .mq-item-delete:hover{ color: var(--brick); }
+
+.marquee-add-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.marquee-add-row input[type=text]{
+  background: var(--bg); border:1px solid var(--border); border-radius: var(--radius-s);
+  padding: 8px 10px; color: var(--ink); font-family: var(--font-body); font-size:13px; flex:1; min-width:120px;
+}
 .marquee-track li.urgent .tag{ color: var(--brick); border-color: rgba(162,62,62,0.3); }
 @keyframes scroll-left{ from{ transform: translateX(0);} to{ transform: translateX(-50%);} }
 
@@ -247,19 +273,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .stat-box.highlight label{ color: var(--accent-deep); }
 .stat-box.highlight .val{ color: var(--accent-deep); }
 
-.stage-track{ display:flex; align-items:center; gap:0; margin-top:16px; width:100%; }
-.stage-node{ display:flex; flex-direction:column; align-items:center; flex:1; position:relative; }
-.stage-node .dot{
-  width: 12px; height:12px; border-radius:50%; border:2px solid var(--border);
-  background: var(--surface); z-index:2;
-}
-.stage-node.done .dot{ background: var(--accent); border-color: var(--accent); }
-.stage-node.current .dot{ background: var(--brick); border-color: var(--brick); box-shadow:0 0 0 4px var(--brick-pale); }
-.stage-node .line{ position:absolute; top:5px; left:-50%; width:100%; height:1.5px; background: var(--border); z-index:1; }
-.stage-node.done .line{ background: var(--accent); }
-.stage-node:first-child .line{ display:none; }
-.stage-node label{ margin-top: 9px; font-size: 11.5px; color: var(--ink-faint); font-family: var(--font-body); }
-.stage-node.current label{ color: var(--ink); font-weight:600; }
 .stage-manual-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; flex-wrap:wrap; width:100%; }
 .stage-note{ margin:0; font-size:11.5px; color: var(--ink-faint); }
 .stage-link-btn{
@@ -316,25 +329,25 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* ---------- 工程進度：大階段軸 + 時間軸上的紀錄圓點 ---------- */
 .phase-stepper{
-  max-width: 900px; margin: 0 auto;
+  max-width: 1180px; margin: 0 auto;
   background: var(--surface); border:1px solid var(--border-soft); border-radius: var(--radius-l);
   padding: 36px 24px; box-shadow: var(--shadow-sm);
   display:flex; align-items:flex-start; flex-wrap: wrap; row-gap: 28px;
 }
-.phase-node-wrap{ display:flex; flex-direction:column; align-items:center; flex:none; width:96px; }
+.phase-node-wrap{ display:flex; flex-direction:column; align-items:center; flex:none; width:78px; }
 .phase-node{
-  width:52px; height:52px; border-radius:50%; flex:none;
+  width:48px; height:48px; border-radius:50%; flex:none;
   display:flex; align-items:center; justify-content:center;
-  font-family: var(--font-display); font-weight:700; font-size:14.5px;
+  font-family: var(--font-display); font-weight:700; font-size:14px;
   border:3px solid var(--border); background: var(--surface); color: var(--ink-faint);
 }
 .phase-node.done{ background: var(--accent); border-color: var(--accent); color:#fff; }
 .phase-node.current{ background: var(--brick); border-color: var(--brick); color:#fff; box-shadow: 0 0 0 5px var(--brick-pale); }
-.phase-node-label{ margin-top:9px; font-size:12.5px; font-weight:600; color: var(--ink); text-align:center; }
+.phase-node-label{ margin-top:9px; font-size:12px; font-weight:600; color: var(--ink); text-align:center; }
 
 .phase-segment{
   flex:1; min-width: 170px; display:flex; flex-direction:column; align-items:flex-start;
-  padding-top:24px;
+  padding: 24px 8px 8px; transition: background .12s var(--ease);
 }
 .phase-segment-line{ width:100%; height:4px; background: var(--border); border-radius:2px; }
 .phase-segment.active .phase-segment-line{ background: var(--accent); }
@@ -364,6 +377,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .phase-tree-node.add-node .node-dot{ border-style:dashed; font-size:9px; display:flex; align-items:center; justify-content:center; color: var(--ink-faint); }
 .phase-tree-node.add-node:hover{ border-color: var(--accent); color: var(--accent); }
 .phase-tree-node.add-node:hover .node-dot{ border-color: var(--accent); color: var(--accent); }
+
+.phase-tree-node[draggable="true"]{ cursor: grab; }
+.phase-tree-node.dragging{ opacity: .35; }
+.phase-segment.drag-over{ background: var(--accent-pale); border-radius: var(--radius-m); }
+.phase-segment.drag-over .phase-segment-line{ background: var(--accent); }
 
 .stage-card{
   background: var(--surface); border:1px solid var(--border-soft); border-radius: var(--radius-l);
@@ -410,6 +428,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .flow-rail .rail-line{ width:1.5px; flex:1; background: var(--border); margin: 2px 0; }
 .flow-item:last-child .flow-rail .rail-line{ display:none; }
 .flow-body{ padding-bottom: 30px; flex:1; }
+.flow-body-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .flow-body h4{ font-family: var(--font-display); font-size:15.5px; margin: 0 0 5px; color: var(--ink); font-weight:700; }
 .flow-body p{ margin:0 0 6px; color: var(--ink-soft); font-size:13.5px; line-height:1.65; }
 .flow-body .meta{ font-family: var(--font-num); font-size:11.5px; color: var(--ink-faint); }
@@ -419,6 +438,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .cal-header h4{ font-family: var(--font-display); font-size:16px; margin:0; color: var(--ink); font-weight:700; }
 
 .cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+
+.gcal-embed-wrap{ margin-top:26px; }
+.gcal-embed-head h4{ font-family: var(--font-display); font-size:15.5px; margin:0 0 4px; color: var(--ink); font-weight:700; }
+.gcal-embed-head p{ margin:0 0 12px; font-size:12.5px; color: var(--ink-soft); }
+.gcal-embed-iframe{
+  width:100%; height: 500px; border:1px solid var(--border-soft); border-radius: var(--radius-l);
+  box-shadow: var(--shadow-sm);
+}
 .cal-weekday{ text-align:center; font-size:11.5px; color: var(--ink-faint); font-family: var(--font-num); padding-bottom:6px; }
 
 .cal-day{

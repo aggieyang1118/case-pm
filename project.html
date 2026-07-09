@@ -48,6 +48,7 @@
       </div>
     </div>
     <div class="phase-stepper" id="phaseStepper"><!-- injected --></div>
+    <div id="stageManualHolder" style="margin-top:14px;"><!-- injected --></div>
   </section>
 
   <!-- 機關流程 -->
@@ -57,6 +58,7 @@
         <h3>機關流程</h3>
         <p>從會勘、決標到竣工結算的完整流程紀錄。</p>
       </div>
+      <button class="btn btn-sm btn-primary" id="btnAddFlow">＋ 新增流程</button>
     </div>
     <div class="flow-list" id="flowList"><!-- injected --></div>
   </section>
@@ -76,6 +78,14 @@
       <button class="btn btn-ghost btn-sm" id="calNextMonth" aria-label="下個月">›</button>
     </div>
     <div class="cal-grid" id="calGrid"><!-- injected --></div>
+
+    <div class="gcal-embed-wrap" id="gcalEmbedWrap" hidden>
+      <div class="gcal-embed-head">
+        <h4>Google 日曆（即時檢視）</h4>
+        <p>這是嵌入你 Google 日曆的即時畫面，僅供檢視，新增事項還是請用上方「＋新增事項」。</p>
+      </div>
+      <iframe id="gcalEmbedFrame" class="gcal-embed-iframe" src="" loading="lazy" title="Google 日曆"></iframe>
+    </div>
   </section>
 
   <div class="foot">Create by Aggie Yang</div>
@@ -143,6 +153,31 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancelEdit">取消</button>
       <button class="btn btn-primary" id="btnSaveEdit">儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<!-- 機關流程 新增/編輯 modal -->
+<div class="modal-backdrop" id="flowModal">
+  <div class="modal">
+    <h3 id="flowModalTitle">新增流程</h3>
+    <div class="field"><label>流程名稱</label><input type="text" id="fl-title" placeholder="例：竣工查驗與結算"></div>
+    <div class="field"><label>說明</label><textarea id="fl-desc" placeholder="這個流程步驟的內容說明" rows="3"></textarea></div>
+    <div class="field-row">
+      <div class="field">
+        <label>狀態</label>
+        <select id="fl-status">
+          <option value="pending">未開始</option>
+          <option value="current">進行中</option>
+          <option value="done">已完成</option>
+        </select>
+      </div>
+      <div class="field"><label>日期／備註</label><input type="text" id="fl-date" placeholder="例：2026-05-20 或「預計 XX 完成」"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDeleteFlow" hidden>刪除</button>
+      <button class="btn btn-ghost" id="btnCancelFlow">取消</button>
+      <button class="btn btn-primary" id="btnSaveFlow">儲存</button>
     </div>
   </div>
 </div>
@@ -295,8 +330,6 @@
 </div><!-- /#appRoot -->
 
 <script src="js/calendar.js"></script>
-<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" async defer></script>
-<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>

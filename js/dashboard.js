@@ -19,25 +19,92 @@
     }
   }
 
-   async function renderMarquee(){
-    const items = await DataStore.getWeeklyGlobal();
-    const listEl = document.getElementById('marqueeList');
-    const marqueeStrip = document.querySelector('.marquee-strip');
-    
-    // 如果沒有資料，隱藏跑馬燈容器
-    if (!items || items.length === 0) {
-      if(marqueeStrip) marqueeStrip.style.display = 'none';
-      return;
-    }
+  let allWeeklyItems = [];
 
-    // 有資料時顯示並渲染
-    if(marqueeStrip) marqueeStrip.style.display = 'flex';
-    const html = items.map(i => `
+  async function renderMarquee(){
+    allWeeklyItems = await DataStore.getWeeklyGlobal();
+    const listEl = document.getElementById('marqueeList');
+    const html = allWeeklyItems.map(i => `
       <li class="${i.urgent ? 'urgent':''}">
         <span class="tag">${i.due}</span>${escapeHtml(i.text)}
       </li>`).join('');
     listEl.innerHTML = html + html;
   }
+
+  function renderMarqueeEditList(){
+    const listEl = document.getElementById('marqueeEditList');
+    if(allWeeklyItems.length === 0){
+      listEl.innerHTML = `<div class="empty-state" style="padding:24px;"><h4>目前沒有跑馬燈事項</h4></div>`;
+      return;
+    }
+    listEl.innerHTML = allWeeklyItems.map(i => `
+      <div class="marquee-edit-item" data-id="${i.id}">
+        <span class="mq-item-due">${escapeHtml(i.due||'')}</span>
+        <span class="mq-item-text">${escapeHtml(i.text)}</span>
+        ${i.urgent ? `<span class="mq-item-urgent">緊急</span>` : ''}
+        <button class="mq-item-delete" title="刪除" data-id="${i.id}">&times;</button>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.mq-item-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try{
+          await DataStore.deleteWeeklyItem(btn.dataset.id);
+          await renderMarquee();
+          renderMarqueeEditList();
+        } catch(err){
+          console.error(err);
+          alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  const marqueeModal = document.getElementById('marqueeModal');
+  const btnMarqueeSettings = document.getElementById('btnMarqueeSettings');
+  btnMarqueeSettings.addEventListener('click', async () => {
+    document.getElementById('marqueeEditList').innerHTML = `<div class="empty-state" style="padding:24px;"><h4>載入中…</h4></div>`;
+    marqueeModal.classList.add('open');
+    try{
+      allWeeklyItems = await DataStore.getWeeklyGlobal();
+      renderMarqueeEditList();
+    } catch(err){
+      console.error(err);
+      document.getElementById('marqueeEditList').innerHTML = `<div class="empty-state" style="padding:24px;"><h4>讀取失敗</h4></div>`;
+    }
+  });
+  document.getElementById('btnCloseMarqueeModal').addEventListener('click', () => marqueeModal.classList.remove('open'));
+  marqueeModal.addEventListener('click', e => { if(e.target === marqueeModal) marqueeModal.classList.remove('open'); });
+
+  document.getElementById('btnAddMarqueeItem').addEventListener('click', async () => {
+    const text = document.getElementById('mq-text').value.trim();
+    if(!text){ alert('請輸入事項內容'); return; }
+    const btn = document.getElementById('btnAddMarqueeItem');
+    btn.disabled = true; btn.textContent = '新增中…';
+    try{
+      await DataStore.addWeeklyItem({
+        text,
+        due: document.getElementById('mq-due').value.trim(),
+        urgent: document.getElementById('mq-urgent').checked,
+      });
+      document.getElementById('mq-text').value = '';
+      document.getElementById('mq-due').value = '';
+      document.getElementById('mq-urgent').checked = false;
+      await renderMarquee();
+      renderMarqueeEditList();
+    } catch(err){
+      console.error(err);
+      alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '新增';
+    }
+  });
+
+  function renderCases(){
+    const grid = document.getElementById('caseGrid');
+    let cases = allCases;
 
     if(searchTerm){
       const q = searchTerm.toLowerCase();
@@ -139,6 +206,8 @@
     if(!window.isAdmin){
       const btn = document.getElementById('btnAddCase');
       if(btn) btn.style.display = 'none';
+    } else {
+      document.getElementById('btnMarqueeSettings').hidden = false;
     }
   }
 

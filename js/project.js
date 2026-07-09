@@ -89,27 +89,6 @@
     const available = kase.availableAmount || 0;
     const rate = contract ? Math.min(999, Math.round((actual / contract) * 100)) : 0;
 
-    let autoStage = 0;
-    try{
-      const [tasks, flow] = await Promise.all([DataStore.getTasks(caseId), DataStore.getFlow(caseId)]);
-      autoStage = computeStage(tasks, flow);
-    } catch(err){
-      console.error(err);
-    }
-
-    const isManual = kase.manualStage !== null && kase.manualStage !== undefined;
-    const displayStage = isManual ? kase.manualStage : autoStage;
-
-    const stages = DataStore.STAGE_LABELS;
-    const stageHtml = stages.map((label, idx) => {
-      const cls = idx < displayStage ? 'done' : (idx === displayStage ? 'current' : '');
-      return `<div class="stage-node ${cls}"><div class="line"></div><div class="dot"></div><label>${label}</label></div>`;
-    }).join('');
-
-    const pickerHtml = stages.map((label, idx) =>
-      `<button class="stage-picker-btn ${idx===displayStage?'active':''}" data-idx="${idx}">${label}</button>`
-    ).join('');
-
     document.getElementById('titleBlock').innerHTML = `
       <div class="tb-name">
         <div class="eyebrow">${escapeHtml(kase.code)} · ${escapeHtml(kase.contractor)}</div>
@@ -130,16 +109,6 @@
         <div class="stat-box"><label>可派工金額</label><div class="val">${money(available)}</div></div>
         <div class="stat-box highlight"><label>執行率</label><div class="val">${rate}%</div></div>
       </div>
-      <div class="stage-track">${stageHtml}</div>
-      ${window.isAdmin ? `
-      <div class="stage-manual-row">
-        <p class="stage-note">${isManual ? '目前階段已手動設定，不會依進度自動變動。' : '目前階段依完成進度自動判斷。'}</p>
-        ${isManual
-          ? `<button class="stage-link-btn" id="btnAutoStage">恢復自動判斷</button>`
-          : `<button class="stage-link-btn" id="btnManualStage">手動調整</button>`}
-      </div>
-      <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>` : `
-      <p class="stage-note" style="margin-top:12px;">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依完成進度自動判斷。'}</p>`}
     `;
 
     const btnEdit = document.getElementById('btnEditCase');
@@ -162,43 +131,6 @@
         }
       });
     }
-    const btnManual = document.getElementById('btnManualStage');
-    if(btnManual){
-      btnManual.addEventListener('click', () => {
-        document.getElementById('stagePicker').hidden = false;
-        btnManual.hidden = true;
-      });
-    }
-    const btnAuto = document.getElementById('btnAutoStage');
-    if(btnAuto){
-      btnAuto.addEventListener('click', async () => {
-        btnAuto.disabled = true;
-        try{
-          await DataStore.updateCase(caseId, { manualStage: null });
-          kase.manualStage = null;
-          await renderTitleBlock();
-        } catch(err){
-          console.error(err);
-          alert('更新失敗，請確認網路連線或 Firebase 設定。');
-          btnAuto.disabled = false;
-        }
-      });
-    }
-    document.querySelectorAll('.stage-picker-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = Number(btn.dataset.idx);
-        document.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = true);
-        try{
-          await DataStore.updateCase(caseId, { manualStage: idx });
-          kase.manualStage = idx;
-          await renderTitleBlock();
-        } catch(err){
-          console.error(err);
-          alert('更新失敗，請確認網路連線或 Firebase 設定。');
-          document.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = false);
-        }
-      });
-    });
   }
 
   function openEditModal(){
@@ -330,9 +262,9 @@
     const container = document.getElementById('phaseStepper');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
 
-    let tasks;
+    let tasks, flow;
     try{
-      tasks = await DataStore.getTasks(caseId);
+      [tasks, flow] = await Promise.all([DataStore.getTasks(caseId), DataStore.getFlow(caseId)]);
     } catch(err){
       console.error(err);
       container.innerHTML = `<div class="empty-state"><h4>資料讀取失敗</h4></div>`;
@@ -350,11 +282,14 @@
         if(seg > maxActiveSeg) maxActiveSeg = seg;
       }
     });
+    const autoStage = computeStage(tasks, flow);
+    const isManual = kase.manualStage !== null && kase.manualStage !== undefined;
+    const displayStage = isManual ? kase.manualStage : (maxActiveSeg + 1);
 
     const stages = DataStore.STAGE_LABELS;
     let html = '';
     stages.forEach((label, i) => {
-      const nodeCls = i <= maxActiveSeg ? 'done' : (i === maxActiveSeg + 1 ? 'current' : '');
+      const nodeCls = i < displayStage ? 'done' : (i === displayStage ? 'current' : '');
       html += `
         <div class="phase-node-wrap">
           <div class="phase-node ${nodeCls}">${i+1}</div>
@@ -374,10 +309,115 @@
     container.innerHTML = html;
 
     container.querySelectorAll('.phase-tree-node[data-task-id]').forEach(el => {
-      el.addEventListener('click', () => openTaskDetailModal(el.dataset.taskId));
+      el.addEventListener('click', (e) => {
+        if(el.dataset.justDragged === '1'){ el.dataset.justDragged = '0'; return; }
+        openTaskDetailModal(el.dataset.taskId);
+      });
     });
     container.querySelectorAll('.phase-tree-node.add-node').forEach(el => {
       el.addEventListener('click', () => openAddTaskModal(Number(el.dataset.seg)));
+    });
+
+    if(window.isAdmin){
+      // 拖曳節點到別的期間，直接改掉所屬期間，不用刪除重建
+      container.querySelectorAll('.phase-tree-node[data-task-id]').forEach(el => {
+        el.setAttribute('draggable', 'true');
+        el.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', el.dataset.taskId);
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => el.classList.add('dragging'), 0);
+        });
+        el.addEventListener('dragend', () => {
+          el.classList.remove('dragging');
+        });
+      });
+      container.querySelectorAll('.phase-segment').forEach(seg => {
+        seg.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          seg.classList.add('drag-over');
+        });
+        seg.addEventListener('dragleave', () => seg.classList.remove('drag-over'));
+        seg.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          seg.classList.remove('drag-over');
+          const taskId = e.dataTransfer.getData('text/plain');
+          const newSeg = Number(seg.dataset.seg);
+          const t = currentTasks.find(x => x.id === taskId);
+          if(!t || (t.phase ?? 0) === newSeg) return;
+          const draggedEl = container.querySelector(`.phase-tree-node[data-task-id="${taskId}"]`);
+          if(draggedEl) draggedEl.dataset.justDragged = '1';
+          try{
+            await DataStore.updateTask(caseId, taskId, { phase: newSeg });
+            await renderStageTimeline();
+          } catch(err){
+            console.error(err);
+            alert('移動失敗，請確認網路連線或 Firebase 設定後再試一次。');
+          }
+        });
+      });
+    }
+
+    renderStageManualControls(isManual, displayStage);
+  }
+
+  function renderStageManualControls(isManual, displayStage){
+    const holder = document.getElementById('stageManualHolder');
+    if(!window.isAdmin){
+      holder.innerHTML = `<p class="stage-note">${isManual ? '目前階段已由管理者手動設定。' : '目前階段依關卡完成進度自動判斷。'}</p>`;
+      return;
+    }
+    const stages = DataStore.STAGE_LABELS;
+    const pickerHtml = stages.map((label, idx) =>
+      `<button class="stage-picker-btn ${idx===displayStage?'active':''}" data-idx="${idx}">${label}</button>`
+    ).join('');
+
+    holder.innerHTML = `
+      <div class="stage-manual-row">
+        <p class="stage-note">${isManual ? '目前階段已手動設定，不會依進度自動變動。' : '目前階段依關卡完成進度自動判斷。'}</p>
+        ${isManual
+          ? `<button class="stage-link-btn" id="btnAutoStage">恢復自動判斷</button>`
+          : `<button class="stage-link-btn" id="btnManualStage">手動調整</button>`}
+      </div>
+      <div class="stage-picker" id="stagePicker" hidden>${pickerHtml}</div>
+    `;
+
+    const btnManual = document.getElementById('btnManualStage');
+    if(btnManual){
+      btnManual.addEventListener('click', () => {
+        document.getElementById('stagePicker').hidden = false;
+        btnManual.hidden = true;
+      });
+    }
+    const btnAuto = document.getElementById('btnAutoStage');
+    if(btnAuto){
+      btnAuto.addEventListener('click', async () => {
+        btnAuto.disabled = true;
+        try{
+          await DataStore.updateCase(caseId, { manualStage: null });
+          kase.manualStage = null;
+          await renderStageTimeline();
+        } catch(err){
+          console.error(err);
+          alert('更新失敗，請確認網路連線或 Firebase 設定。');
+          btnAuto.disabled = false;
+        }
+      });
+    }
+    holder.querySelectorAll('.stage-picker-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.dataset.idx);
+        holder.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = true);
+        try{
+          await DataStore.updateCase(caseId, { manualStage: idx });
+          kase.manualStage = idx;
+          await renderStageTimeline();
+        } catch(err){
+          console.error(err);
+          alert('更新失敗，請確認網路連線或 Firebase 設定。');
+          holder.querySelectorAll('.stage-picker-btn').forEach(b => b.disabled = false);
+        }
+      });
     });
   }
 
@@ -533,6 +573,8 @@
     if(e.key === 'ArrowRight') document.getElementById('lbNext').click();
   });
 
+  let currentFlow = [];
+
   async function renderFlow(){
     const container = document.getElementById('flowList');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
@@ -544,17 +586,88 @@
       container.innerHTML = `<div class="empty-state"><h4>流程讀取失敗</h4></div>`;
       return;
     }
+    currentFlow = flow;
     container.innerHTML = flow.map(f => `
       <div class="flow-item ${f.status}">
         <div class="flow-rail"><div class="node"></div><div class="rail-line"></div></div>
         <div class="flow-body">
-          <h4>${escapeHtml(f.title)}</h4>
+          <div class="flow-body-head">
+            <h4>${escapeHtml(f.title)}</h4>
+            ${window.isAdmin ? `<button class="stage-link-btn" data-edit-flow="${f.id}">編輯</button>` : ''}
+          </div>
           <p>${escapeHtml(f.desc)}</p>
           <div class="meta">${escapeHtml(f.date)}</div>
         </div>
       </div>
-    `).join('') || `<div class="empty-state"><h4>尚無流程紀錄</h4></div>`;
+    `).join('') || `<div class="empty-state"><h4>尚無流程紀錄</h4><p>點右上角「新增流程」開始建立。</p></div>`;
+
+    container.querySelectorAll('[data-edit-flow]').forEach(btn => {
+      btn.addEventListener('click', () => openFlowModal(btn.dataset.editFlow));
+    });
   }
+
+  const flowModal = document.getElementById('flowModal');
+  function openFlowModal(stepId){
+    const f = stepId ? currentFlow.find(x => x.id === stepId) : null;
+    document.getElementById('flowModalTitle').textContent = f ? '編輯流程' : '新增流程';
+    document.getElementById('fl-title').value = f ? f.title : '';
+    document.getElementById('fl-desc').value = f ? f.desc : '';
+    document.getElementById('fl-status').value = f ? f.status : 'pending';
+    document.getElementById('fl-date').value = f ? f.date : '';
+    flowModal.dataset.stepId = stepId || '';
+    document.getElementById('btnDeleteFlow').hidden = !f;
+    flowModal.classList.add('open');
+  }
+  document.getElementById('btnAddFlow').addEventListener('click', () => openFlowModal(null));
+  document.getElementById('btnCancelFlow').addEventListener('click', () => flowModal.classList.remove('open'));
+  flowModal.addEventListener('click', e => { if(e.target === flowModal) flowModal.classList.remove('open'); });
+
+  document.getElementById('btnSaveFlow').addEventListener('click', async () => {
+    const title = document.getElementById('fl-title').value.trim();
+    if(!title){ alert('請輸入流程名稱'); return; }
+    const stepId = flowModal.dataset.stepId;
+    const btn = document.getElementById('btnSaveFlow');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try{
+      const patch = {
+        title,
+        desc: document.getElementById('fl-desc').value.trim(),
+        status: document.getElementById('fl-status').value,
+        date: document.getElementById('fl-date').value.trim(),
+      };
+      if(stepId){
+        await DataStore.updateFlow(caseId, stepId, patch);
+      } else {
+        await DataStore.addFlow(caseId, patch);
+      }
+      flowModal.classList.remove('open');
+      await Promise.all([renderFlow(), renderStageTimeline()]);
+    } catch(err){
+      console.error(err);
+      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+    } finally{
+      btn.disabled = false; btn.textContent = '儲存';
+    }
+  });
+
+  document.getElementById('btnDeleteFlow').addEventListener('click', async () => {
+    const stepId = flowModal.dataset.stepId;
+    if(!stepId) return;
+    const ok = confirm('確定要刪除這筆機關流程紀錄嗎？此動作無法復原。');
+    if(!ok) return;
+    const btn = document.getElementById('btnDeleteFlow');
+    btn.disabled = true; btn.textContent = '刪除中…';
+    try{
+      await DataStore.deleteFlow(caseId, stepId);
+      flowModal.classList.remove('open');
+      await Promise.all([renderFlow(), renderStageTimeline()]);
+    } catch(err){
+      console.error(err);
+      alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
+      btn.disabled = false; btn.textContent = '刪除';
+    }
+  });
+
 
   const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
   let calendarViewDate = new Date();
@@ -575,6 +688,15 @@
       return;
     }
     renderCalendarGrid();
+    setupGoogleCalendarEmbed();
+  }
+
+  function setupGoogleCalendarEmbed(){
+    if(!window.CalendarIntegration || !window.CalendarIntegration.isEmbedConfigured()) return;
+    const wrap = document.getElementById('gcalEmbedWrap');
+    const frame = document.getElementById('gcalEmbedFrame');
+    if(!frame.src) frame.src = window.CalendarIntegration.getEmbedUrl();
+    wrap.hidden = false;
   }
 
   function renderCalendarGrid(){
@@ -843,18 +965,15 @@
       });
 
       if(wantsCalendar){
-        btn.textContent = '建立日曆提醒中…';
-        try{
-          await window.CalendarIntegration.createEvent({
-            title: text,
-            description: `來自「${kase.name}」標案的待辦事項提醒。`,
-            start: calStart,
-            end: calEnd,
-            attendeeEmails: calEmails,
-          });
-        } catch(calErr){
-          console.error(calErr);
-          alert('待辦事項已儲存，但 Google 日曆提醒建立失敗，請確認是否已完成 Google 授權，或稍後再試一次。');
+        const popup = window.CalendarIntegration.openQuickAdd({
+          title: text,
+          description: `來自「${kase.name}」標案的待辦事項提醒。`,
+          start: calStart,
+          end: calEnd,
+          attendeeEmails: calEmails,
+        });
+        if(popup === null || popup === undefined){
+          alert('待辦事項已儲存。瀏覽器可能擋住了跳出的 Google 日曆分頁，請允許彈出視窗後再試一次，或手動到 Google 日曆新增。');
         }
       }
 
@@ -872,6 +991,10 @@
 
   function applyRoleUI(){
     // 新增紀錄的「＋」按鈕已經在 renderStageTimeline() 依 window.isAdmin 決定要不要輸出，這裡不需要額外處理
+    if(!window.isAdmin){
+      const btnFlow = document.getElementById('btnAddFlow');
+      if(btnFlow) btnFlow.style.display = 'none';
+    }
   }
 
   function init(){

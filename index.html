@@ -21,18 +21,8 @@
       <button class="btn btn-ghost btn-sm" id="btnLogout" hidden>登出</button>
       <div class="search-box">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <div class="field">
-      <label>最新進度</label>
-      <select id="f-progress" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-        <option value="決標">決標</option>
-        <option value="開工前">開工前</option>
-        <option value="施工中">施工中</option>
-        <option value="竣工">竣工</option>
-        <option value="估驗">估驗</option>
-        <option value="驗收">驗收</option>
-        <option value="決算">決算</option>
-      </select>
-    </div>
+        <input id="searchInput" type="text" placeholder="搜尋標案名稱或案號…">
+      </div>
       <button class="btn btn-primary" id="btnAddCase">＋ 新增標案</button>
     </div>
   </header>
@@ -43,6 +33,7 @@
     <div class="marquee-track">
       <ul id="marqueeList"><!-- injected --></ul>
     </div>
+    <button class="marquee-settings-btn" id="btnMarqueeSettings" title="編輯跑馬燈內容" hidden>⚙</button>
   </div>
 
   <!-- 案件卡片 -->
@@ -51,6 +42,25 @@
   </section>
 
   <div class="foot">Create by Aggie Yang</div>
+</div>
+
+<!-- 跑馬燈設定 modal -->
+<div class="modal-backdrop" id="marqueeModal">
+  <div class="modal">
+    <h3>編輯跑馬燈內容</h3>
+    <div class="marquee-edit-list" id="marqueeEditList"><!-- injected --></div>
+    <div class="marquee-add-row">
+      <input type="text" id="mq-text" placeholder="事項內容，例：回覆議員陳情">
+      <input type="text" id="mq-due" placeholder="日期，例：07/15" style="max-width:100px;">
+      <label class="cal-toggle-label" style="white-space:nowrap;">
+        <input type="checkbox" id="mq-urgent"> 緊急
+      </label>
+      <button class="btn btn-primary btn-sm" id="btnAddMarqueeItem">新增</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCloseMarqueeModal">關閉</button>
+    </div>
+  </div>
 </div>
 
 <!-- 新增標案 modal -->
@@ -123,4 +133,3 @@
 <script src="js/dashboard.js"></script>
 </body>
 </html>
-
