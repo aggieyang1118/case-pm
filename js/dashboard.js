@@ -20,16 +20,28 @@
   }
 
   let allWeeklyItems = [];
-
-  async function renderMarquee(){
+async function renderMarquee() {
     allWeeklyItems = await DataStore.getWeeklyGlobal();
     const listEl = document.getElementById('marqueeList');
+    const stripEl = document.querySelector('.marquee-strip'); // 取得跑馬燈容器
+
+    // 如果沒有資料，直接隱藏
+    if (!allWeeklyItems || allWeeklyItems.length === 0) {
+        stripEl.style.display = 'none';
+        return;
+    }
+
+    // 有資料才顯示
+    stripEl.style.display = 'block';
+
     const html = allWeeklyItems.map(i => `
       <li class="${i.urgent ? 'urgent':''}">
         <span class="tag">${i.due}</span>${escapeHtml(i.text)}
       </li>`).join('');
+    
     listEl.innerHTML = html + html;
-  }
+}
+  
 
   function renderMarqueeEditList(){
     const listEl = document.getElementById('marqueeEditList');
