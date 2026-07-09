@@ -16,7 +16,7 @@
 
 const DB_KEY = 'epm_demo_db_v1';
 
-const STAGE_LABELS = ['決標', '開工', '施工中', '驗收', '結案'];
+const STAGE_LABELS = ['決標', '開工前', '施工中', '竣工', '估驗', '驗收', '決算'];
 
 function seedData(){
   return {
