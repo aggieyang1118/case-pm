@@ -587,11 +587,9 @@
       });
     });
 
-    if(window.isAdmin){
-      grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
-        el.addEventListener('click', () => openAddTodoModal(el.dataset.date));
-      });
-    }
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+      el.addEventListener('click', () => openAddTodoModal(el.dataset.date));
+    });
   }
 
   function openEditTodoModal(todoId){
@@ -602,13 +600,12 @@
     document.getElementById('ed-priority').value = t.priority || 'mid';
     document.getElementById('ed-done').checked = !!t.done;
     editTodoModal.dataset.todoId = todoId;
-    const canEdit = window.isAdmin;
-    document.getElementById('ed-text').disabled = !canEdit;
-    document.getElementById('ed-due').disabled = !canEdit;
-    document.getElementById('ed-priority').disabled = !canEdit;
-    document.getElementById('ed-done').disabled = !canEdit;
-    document.getElementById('btnSaveEditTodo').hidden = !canEdit;
-    document.getElementById('btnDeleteTodo').hidden = !canEdit;
+    document.getElementById('ed-text').disabled = false;
+    document.getElementById('ed-due').disabled = false;
+    document.getElementById('ed-priority').disabled = false;
+    document.getElementById('ed-done').disabled = false;
+    document.getElementById('btnSaveEditTodo').hidden = false;
+    document.getElementById('btnDeleteTodo').hidden = false;
     editTodoModal.classList.add('open');
   }
 
@@ -664,7 +661,15 @@
   });
 
   const taskModal = document.getElementById('addTaskModal');
-  document.getElementById('btnAddTask').addEventListener('click', ()=> taskModal.classList.add('open'));
+  const ADD_TASK_FIELD_IDS = ['t-name','t-owner','t-note','t-start','t-end'];
+  function resetAddTaskForm(){
+    ADD_TASK_FIELD_IDS.forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('t-status').value = 'pending';
+  }
+  document.getElementById('btnAddTask').addEventListener('click', ()=> {
+    resetAddTaskForm();
+    taskModal.classList.add('open');
+  });
   document.getElementById('btnCancelTask').addEventListener('click', ()=> taskModal.classList.remove('open'));
   taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
   document.getElementById('btnSaveTask').addEventListener('click', async () => {
@@ -682,6 +687,7 @@
         status: document.getElementById('t-status').value,
       });
       taskModal.classList.remove('open');
+      resetAddTaskForm();
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
     } catch(err){
       console.error(err);
@@ -822,9 +828,7 @@
   function applyRoleUI(){
     if(!window.isAdmin){
       const btnTask = document.getElementById('btnAddTask');
-      const btnTodo = document.getElementById('btnAddTodo');
       if(btnTask) btnTask.style.display = 'none';
-      if(btnTodo) btnTodo.style.display = 'none';
     }
   }
 
