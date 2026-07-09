@@ -21,8 +21,18 @@
       <button class="btn btn-ghost btn-sm" id="btnLogout" hidden>登出</button>
       <div class="search-box">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="searchInput" type="text" placeholder="搜尋標案名稱或案號…">
-      </div>
+            <div class="field">
+      <label>最新進度</label>
+      <select id="f-progress" style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <option value="決標">決標</option>
+        <option value="開工前">開工前</option>
+        <option value="施工中">施工中</option>
+        <option value="竣工">竣工</option>
+        <option value="估驗">估驗</option>
+        <option value="驗收">驗收</option>
+        <option value="決算">決算</option>
+      </select>
+    </div>
       <button class="btn btn-primary" id="btnAddCase">＋ 新增標案</button>
     </div>
   </header>
