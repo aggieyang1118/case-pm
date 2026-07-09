@@ -19,19 +19,25 @@
     }
   }
 
-  async function renderMarquee(){
+   async function renderMarquee(){
     const items = await DataStore.getWeeklyGlobal();
     const listEl = document.getElementById('marqueeList');
+    const marqueeStrip = document.querySelector('.marquee-strip');
+    
+    // 如果沒有資料，隱藏跑馬燈容器
+    if (!items || items.length === 0) {
+      if(marqueeStrip) marqueeStrip.style.display = 'none';
+      return;
+    }
+
+    // 有資料時顯示並渲染
+    if(marqueeStrip) marqueeStrip.style.display = 'flex';
     const html = items.map(i => `
       <li class="${i.urgent ? 'urgent':''}">
         <span class="tag">${i.due}</span>${escapeHtml(i.text)}
       </li>`).join('');
     listEl.innerHTML = html + html;
   }
-
-  function renderCases(){
-    const grid = document.getElementById('caseGrid');
-    let cases = allCases;
 
     if(searchTerm){
       const q = searchTerm.toLowerCase();
