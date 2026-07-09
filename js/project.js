@@ -49,6 +49,7 @@
     document.getElementById('crumbName').textContent = kase.name;
 
     initTabs();
+    populatePhaseSelects();
     await Promise.all([renderTitleBlock(), renderStageTimeline(), renderFlow(), renderTodos()]);
   }
 
@@ -61,21 +62,23 @@
       </div>`;
   }
 
-  // 根據階段（工項）完成狀況，加上機關流程最後一步是否結案，自動判斷目前階段
+  // 根據每筆紀錄所屬的「期間」(phase 0~3)，加上機關流程最後一步是否結案，自動判斷目前階段
   function computeStage(tasks, flow){
-    if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何階段
-    const total = tasks.length;
-    const doneCount = tasks.filter(t => t.status === 'done').length;
-    const progressCount = tasks.filter(t => t.status === 'progress').length;
-
-    if(doneCount === 0 && progressCount === 0) return 0; // 決標：都還沒開始
-    if(doneCount === total){
+    if(!tasks || tasks.length === 0) return 0; // 決標：還沒有任何紀錄
+    let maxActiveSeg = -1;
+    tasks.forEach(t => {
+      if(t.status === 'done' || t.status === 'progress'){
+        const seg = t.phase ?? 0;
+        if(seg > maxActiveSeg) maxActiveSeg = seg;
+      }
+    });
+    if(maxActiveSeg === -1) return 0; // 決標：都還沒開始
+    let stage = Math.min(4, maxActiveSeg + 1);
+    if(stage === 4){
       const lastFlow = flow && flow.length ? flow[flow.length - 1] : null;
-      if(lastFlow && lastFlow.status === 'done') return 4; // 結案：階段全過 + 機關流程最後一步也完成
-      return 3; // 驗收：階段全部完成，等待結算
+      if(!(lastFlow && lastFlow.status === 'done')) stage = 3; // 還沒真正結案前，維持在驗收
     }
-    if(doneCount === 0 && progressCount >= 1) return 1; // 開工：第一階段剛起步
-    return 2; // 施工中：有完成也有還沒完成的
+    return stage;
   }
 
   async function renderTitleBlock(){
@@ -269,8 +272,8 @@
   }
 
   const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
-  const NODE_COLORS = ['#c17b5f', '#c99a4a', '#6a9080', '#3d7ea6', '#8087b0', '#a2685f', '#5b8fb0'];
-  let selectedTaskId = null;
+  const SEGMENT_LABELS = DataStore.STAGE_LABELS.slice(0, -1).map((label, i) => `${label} → ${DataStore.STAGE_LABELS[i+1]}`);
+  let currentSegmentIdx = null;
 
   function renderNoteList(note){
     if(!note) return '';
@@ -280,16 +283,15 @@
     return `<ul class="stage-note-list">${lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
   }
 
-  function mapColumnsForWidth(){
-    const w = window.innerWidth;
-    if(w >= 900) return 5;
-    if(w >= 600) return 3;
-    return 2;
+  function populatePhaseSelects(){
+    const optionsHtml = SEGMENT_LABELS.map((label, i) => `<option value="${i}">${escapeHtml(label)}</option>`).join('');
+    document.getElementById('t-phase').innerHTML = optionsHtml;
+    document.getElementById('et-phase').innerHTML = optionsHtml;
   }
 
-  // ---------------- 工程進度：S 型闖關地圖 ＋ 下方詳情面板 ----------------
+  // ---------------- 工程進度：大階段軸 ＋ 期間紀錄清單 ----------------
   async function renderStageTimeline(){
-    const container = document.getElementById('stageTimeline');
+    const container = document.getElementById('phaseStepper');
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
 
     let tasks;
@@ -297,7 +299,7 @@
       tasks = await DataStore.getTasks(caseId);
     } catch(err){
       console.error(err);
-      container.innerHTML = `<div class="empty-state"><h4>階段讀取失敗</h4></div>`;
+      container.innerHTML = `<div class="empty-state"><h4>資料讀取失敗</h4></div>`;
       return;
     }
 
@@ -305,132 +307,152 @@
     tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
     currentTasks = tasks;
 
-    if(tasks.length === 0){
-      container.innerHTML = `<div class="empty-state"><h4>尚未建立階段</h4><p>點右上角「新增階段」開始記錄工程進度。</p></div>`;
-      return;
-    }
+    const counts = [0,0,0,0];
+    tasks.forEach(t => { const seg = t.phase ?? 0; if(counts[seg] !== undefined) counts[seg]++; });
 
-    const COLS = mapColumnsForWidth();
-    const rows = [];
-    for(let i = 0; i < tasks.length; i += COLS) rows.push(tasks.slice(i, i + COLS));
-
-    let mapHtml = '<div class="map-wrap">';
-    rows.forEach((row, rIdx) => {
-      const dir = rIdx % 2 === 0 ? 'ltr' : 'rtl';
-      mapHtml += `<div class="map-row ${dir}">`;
-      row.forEach((t, idxInRow) => {
-        const nodeColor = NODE_COLORS[(rIdx*COLS + idxInRow) % NODE_COLORS.length];
-        const nodeInner = t.status === 'done' ? '✓' : (t.status === 'progress' ? '●' : (rIdx*COLS + idxInRow + 1));
-        mapHtml += `
-          <div class="map-node" data-task-id="${t.id}" tabindex="0" role="button" aria-label="${escapeHtml(t.name)}">
-            <div class="map-node-icon status-${t.status}" style="--node-color:${nodeColor}">${nodeInner}</div>
-            <div class="map-node-label">${escapeHtml(t.name)}</div>
-          </div>`;
-        if(idxInRow < row.length - 1){
-          mapHtml += `<div class="map-connector ${t.status==='done'?'active':''}"></div>`;
-        }
-      });
-      mapHtml += `</div>`;
-      if(rIdx < rows.length - 1){
-        const lastTask = row[row.length - 1];
-        const side = rIdx % 2 === 0 ? 'right' : 'left';
-        mapHtml += `<div class="row-turn turn-${side} ${lastTask.status==='done'?'active':''}"><div class="turn-line"></div></div>`;
+    let maxActiveSeg = -1;
+    tasks.forEach(t => {
+      if(t.status === 'done' || t.status === 'progress'){
+        const seg = t.phase ?? 0;
+        if(seg > maxActiveSeg) maxActiveSeg = seg;
       }
     });
-    mapHtml += '</div>';
 
-    container.innerHTML = mapHtml;
+    const stages = DataStore.STAGE_LABELS;
+    let html = '';
+    stages.forEach((label, i) => {
+      const nodeCls = i <= maxActiveSeg ? 'done' : (i === maxActiveSeg + 1 ? 'current' : '');
+      html += `
+        <div class="phase-node-wrap">
+          <div class="phase-node ${nodeCls}">${i+1}</div>
+          <div class="phase-node-label">${escapeHtml(label)}</div>
+        </div>`;
+      if(i < stages.length - 1){
+        const segActive = i <= maxActiveSeg;
+        html += `
+          <button type="button" class="phase-segment ${segActive?'active':''}" data-seg="${i}">
+            <div class="phase-segment-line"></div>
+            <div class="phase-segment-badge ${counts[i]>0?'has-items':''}">${counts[i]>0 ? counts[i]+' 筆紀錄' : '點擊新增'}</div>
+          </button>`;
+      }
+    });
 
-    container.querySelectorAll('.map-node').forEach(el => {
-      const pick = () => openStageDetailModal(el.dataset.taskId);
-      el.addEventListener('click', pick);
-      el.addEventListener('keydown', e => { if(e.key === 'Enter') pick(); });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.phase-segment').forEach(el => {
+      el.addEventListener('click', () => openSegmentModal(Number(el.dataset.seg)));
     });
   }
 
-  function openStageDetailModal(taskId){
-    selectedTaskId = taskId;
-    const t = currentTasks.find(x => x.id === taskId);
-    if(!t) return;
+  function openSegmentModal(segIdx){
+    currentSegmentIdx = segIdx;
+    document.getElementById('segmentModalTitle').textContent = SEGMENT_LABELS[segIdx];
+    renderSegmentList();
+    document.getElementById('segmentModal').classList.add('open');
+  }
 
-    const modal = document.getElementById('stageDetailModal');
-    const body = document.getElementById('stageDetailModalBody');
+  function renderSegmentList(){
+    const list = document.getElementById('segmentList');
+    const items = currentTasks
+      .filter(t => (t.phase ?? 0) === currentSegmentIdx)
+      .sort((a,b) => (a.start||'').localeCompare(b.start||''));
 
-    const attachHtml = (t.attachments||[]).map(a => {
-      if(a.type === 'image'){
-        const imgIndex = allImages.findIndex(x => x.url === a.url);
-        return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
-      }
-      return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
-    }).join('');
-
-    body.innerHTML = `
-      <div class="stage-card status-${t.status}" style="box-shadow:none; border:none; padding:0;">
-        <div class="stage-card-head">
-          <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
-          <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
-        </div>
-        <h4>${escapeHtml(t.name)}</h4>
-        ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
-        ${renderNoteList(t.note)}
-        ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
-        ${window.isAdmin ? `
-        <div class="stage-controls">
-          <div class="lp-status-row">
-            <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-            <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-            <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
-          </div>
-          <div class="stage-controls-row">
-            <label class="btn btn-ghost btn-sm stage-upload">
-              ＋ 新增照片／檔案
-              <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-            </label>
-            <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯階段</button>
-            <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除階段</button>
-          </div>
-        </div>` : ''}
-      </div>`;
-
-    body.querySelectorAll('.thumb[data-img-index]').forEach(el => {
-      el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
-    });
-
-    const editBtn = body.querySelector('.stage-edit-btn');
-    if(editBtn){
-      editBtn.addEventListener('click', () => {
-        modal.classList.remove('open');
-        openEditTaskModal(editBtn.dataset.editTask);
-      });
+    if(items.length === 0){
+      list.innerHTML = `<div class="empty-state"><h4>這段期間還沒有紀錄</h4><p>點下方「新增紀錄」開始記錄，例如三書送審、材料送審。</p></div>`;
+      return;
     }
 
-    const deleteBtn = body.querySelector('.stage-delete-btn');
-    if(deleteBtn){
-      deleteBtn.addEventListener('click', async () => {
-        const ok = confirm(`確定要刪除「${t.name}」這個階段嗎？此動作無法復原。`);
+    list.innerHTML = items.map(t => {
+      const attachHtml = (t.attachments||[]).map(a => {
+        if(a.type === 'image'){
+          const imgIndex = allImages.findIndex(x => x.url === a.url);
+          return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
+        }
+        return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
+      }).join('');
+
+      return `
+      <div class="segment-item" data-task-id="${t.id}">
+        <div class="segment-item-head">
+          <h5>${escapeHtml(t.name)}</h5>
+          <span class="segment-item-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+        </div>
+        <div class="segment-item-body">
+          <div class="stage-card-head">
+            <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+          </div>
+          ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+          ${renderNoteList(t.note)}
+          ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+          ${window.isAdmin ? `
+          <div class="stage-controls">
+            <div class="lp-status-row">
+              <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+              <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+              <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+            </div>
+            <div class="stage-controls-row">
+              <label class="btn btn-ghost btn-sm stage-upload">
+                ＋ 新增照片／檔案
+                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+              </label>
+              <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯</button>
+              <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除</button>
+            </div>
+          </div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.segment-item-head').forEach(head => {
+      head.addEventListener('click', () => {
+        head.closest('.segment-item').classList.toggle('expanded');
+      });
+    });
+
+    list.querySelectorAll('.thumb[data-img-index]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(Number(el.dataset.imgIndex)); });
+    });
+
+    list.querySelectorAll('.stage-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('segmentModal').classList.remove('open');
+        openEditTaskModal(btn.dataset.editTask);
+      });
+    });
+
+    list.querySelectorAll('.stage-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const taskId = btn.dataset.deleteTask;
+        const t = currentTasks.find(x => x.id === taskId);
+        const ok = confirm(`確定要刪除「${t ? t.name : ''}」這筆紀錄嗎？此動作無法復原。`);
         if(!ok) return;
-        deleteBtn.disabled = true; deleteBtn.textContent = '刪除中…';
+        btn.disabled = true; btn.textContent = '刪除中…';
         try{
-          await DataStore.deleteTask(caseId, t.id);
-          modal.classList.remove('open');
+          await DataStore.deleteTask(caseId, taskId);
           await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+          renderSegmentList();
         } catch(err){
           console.error(err);
           alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
-          deleteBtn.disabled = false; deleteBtn.textContent = '刪除階段';
+          btn.disabled = false; btn.textContent = '刪除';
         }
       });
-    }
+    });
 
-    body.querySelectorAll('.lp-status-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
+    list.querySelectorAll('.lp-status-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const taskId = btn.closest('.segment-item').dataset.taskId;
         const newStatus = btn.dataset.status;
         const statusRow = btn.closest('.lp-status-row');
         statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
         try{
-          await DataStore.updateTaskStatus(caseId, t.id, newStatus);
+          await DataStore.updateTaskStatus(caseId, taskId, newStatus);
           await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-          openStageDetailModal(t.id); // 重新整理彈窗內容，保持開啟狀態
+          renderSegmentList();
         } catch(err){
           console.error(err);
           alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
@@ -439,33 +461,36 @@
       });
     });
 
-    const uploadInput = body.querySelector('input[data-upload-for]');
-    if(uploadInput){
-      uploadInput.addEventListener('change', async e => {
+    list.querySelectorAll('input[data-upload-for]').forEach(input => {
+      input.addEventListener('change', async (e) => {
+        e.stopPropagation();
         const file = e.target.files[0];
         if(!file) return;
-        const label = body.querySelector('.stage-upload');
+        const taskId = input.dataset.uploadFor;
+        const label = input.closest('.stage-upload');
         label.style.opacity = '0.5';
         try{
-          await DataStore.uploadAttachment(caseId, t.id, file);
+          await DataStore.uploadAttachment(caseId, taskId, file);
           await renderStageTimeline();
-          openStageDetailModal(t.id); // 重新整理彈窗內容，保持開啟狀態
+          renderSegmentList();
         } catch(err){
           console.error(err);
           alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
           label.style.opacity = '1';
         }
       });
-    }
-
-    modal.classList.add('open');
+    });
   }
 
-  document.getElementById('stageDetailClose').addEventListener('click', () => {
-    document.getElementById('stageDetailModal').classList.remove('open');
+  document.getElementById('segmentModalClose').addEventListener('click', () => {
+    document.getElementById('segmentModal').classList.remove('open');
   });
-  document.getElementById('stageDetailModal').addEventListener('click', e => {
-    if(e.target.id === 'stageDetailModal') e.currentTarget.classList.remove('open');
+  document.getElementById('segmentModal').addEventListener('click', e => {
+    if(e.target.id === 'segmentModal') e.currentTarget.classList.remove('open');
+  });
+  document.getElementById('btnAddSegmentRecord').addEventListener('click', () => {
+    document.getElementById('segmentModal').classList.remove('open');
+    openAddTaskModal(currentSegmentIdx);
   });
 
   const lb = document.getElementById('lightbox');
@@ -622,6 +647,7 @@
     const t = currentTasks.find(x => x.id === taskId);
     if(!t) return;
     document.getElementById('et-name').value = t.name || '';
+    document.getElementById('et-phase').value = String(t.phase ?? 0);
     document.getElementById('et-owner').value = t.owner || '';
     document.getElementById('et-note').value = t.note || '';
     document.getElementById('et-start').value = t.start || '';
@@ -637,13 +663,15 @@
 
   document.getElementById('btnSaveEditTask').addEventListener('click', async () => {
     const name = document.getElementById('et-name').value.trim();
-    if(!name){ alert('請輸入階段名稱'); return; }
+    if(!name){ alert('請輸入項目名稱'); return; }
     const taskId = editTaskModal.dataset.taskId;
     const btn = document.getElementById('btnSaveEditTask');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
+      const newPhase = Number(document.getElementById('et-phase').value);
       await DataStore.updateTask(caseId, taskId, {
         name,
+        phase: newPhase,
         owner: document.getElementById('et-owner').value.trim(),
         note: document.getElementById('et-note').value.trim(),
         start: document.getElementById('et-start').value,
@@ -652,6 +680,7 @@
       });
       editTaskModal.classList.remove('open');
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+      openSegmentModal(newPhase);
     } catch(err){
       console.error(err);
       alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
@@ -662,24 +691,27 @@
 
   const taskModal = document.getElementById('addTaskModal');
   const ADD_TASK_FIELD_IDS = ['t-name','t-owner','t-note','t-start','t-end'];
-  function resetAddTaskForm(){
+  function resetAddTaskForm(segIdx){
     ADD_TASK_FIELD_IDS.forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('t-status').value = 'pending';
+    document.getElementById('t-phase').value = String(segIdx ?? 0);
   }
-  document.getElementById('btnAddTask').addEventListener('click', ()=> {
-    resetAddTaskForm();
+  function openAddTaskModal(segIdx){
+    resetAddTaskForm(segIdx);
     taskModal.classList.add('open');
-  });
+  }
   document.getElementById('btnCancelTask').addEventListener('click', ()=> taskModal.classList.remove('open'));
   taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
   document.getElementById('btnSaveTask').addEventListener('click', async () => {
     const name = document.getElementById('t-name').value.trim();
-    if(!name){ alert('請輸入階段名稱'); return; }
+    if(!name){ alert('請輸入項目名稱'); return; }
     const btn = document.getElementById('btnSaveTask');
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
+      const savedPhase = Number(document.getElementById('t-phase').value);
       await DataStore.addTask(caseId, {
         name,
+        phase: savedPhase,
         owner: document.getElementById('t-owner').value.trim(),
         note: document.getElementById('t-note').value.trim(),
         start: document.getElementById('t-start').value,
@@ -687,13 +719,14 @@
         status: document.getElementById('t-status').value,
       });
       taskModal.classList.remove('open');
-      resetAddTaskForm();
+      resetAddTaskForm(savedPhase);
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
+      openSegmentModal(savedPhase);
     } catch(err){
       console.error(err);
       alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
     } finally{
-      btn.disabled = false; btn.textContent = '儲存階段';
+      btn.disabled = false; btn.textContent = '儲存紀錄';
     }
   });
 
@@ -827,8 +860,8 @@
 
   function applyRoleUI(){
     if(!window.isAdmin){
-      const btnTask = document.getElementById('btnAddTask');
-      if(btnTask) btnTask.style.display = 'none';
+      const btnRecord = document.getElementById('btnAddSegmentRecord');
+      if(btnRecord) btnRecord.style.display = 'none';
     }
   }
 
