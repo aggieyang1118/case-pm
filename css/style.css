@@ -572,13 +572,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 /* ============================================================
-   全新流暢看板排版視覺集 (Kanban Board Layouts)
+   優化版：雙排高質感工程進度看板 (全新自動換行版)
    ============================================================ */
 .kanban-board {
   display: flex !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;         /* 關鍵：改為 wrap 允許欄位自動換行到第二排 */
   gap: 16px !important;
-  overflow-x: auto !important;
   padding: 10px 4px 20px !important;
   align-items: flex-start !important;
   background: transparent !important;
@@ -586,8 +585,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   box-shadow: none !important;
   min-height: 580px;
 }
+
 .kanban-col {
-  flex: 0 0 250px;
+  /* 在標準桌機螢幕下，固定寬度 280px 加上 16px 間距，第一排剛好能完美放下 4 個欄位 */
+  /* 第 5 個欄位（估驗）因為空間不夠，就會聽話地自動掉到第二排，與驗收、決算排在一起！ */
+  flex: 0 0 280px !important;         
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-m);
@@ -597,6 +599,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   flex-direction: column;
   max-height: 520px;
 }
+
 .kanban-col-header {
   display: flex;
   justify-content: space-between;
@@ -604,11 +607,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   margin-bottom: 14px;
   padding-bottom: 4px;
 }
+
 .kanban-col-title {
   font-weight: 700;
   font-size: 14px;
   color: var(--ink);
 }
+
 .kanban-add-node-btn {
   background: var(--accent-pale);
   border: 1px dashed var(--accent);
@@ -623,10 +628,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   cursor: pointer;
   transition: all 0.15s var(--ease);
 }
+
 .kanban-add-node-btn:hover {
   background: var(--accent-deep);
   color: #fff;
 }
+
 .drop-zone {
   flex: 1;
   min-height: 200px;
@@ -636,6 +643,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   overflow-y: auto;
   padding-right: 2px;
 }
+
 .task-card {
   background: var(--bg);
   border-radius: var(--radius-s);
@@ -645,11 +653,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   border-left: 4px solid var(--ink-faint);
   transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
+
 .task-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
   background: #fff;
 }
+
 .task-card.status-done { border-left-color: var(--ok); }
 .task-card.status-progress { border-left-color: var(--brick); }
 .task-card.status-pending { border-left-color: var(--ink-faint); }
@@ -661,11 +671,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   line-height: 1.4;
   margin-bottom: 8px;
 }
+
 .task-card-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .status-badge {
   font-size: 9.5px;
   padding: 1px 6px;
@@ -673,6 +685,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   color: #fff;
   font-weight: 600;
 }
+
 .status-badge.done { background: var(--ok); }
 .status-badge.progress { background: var(--brick); }
 .status-badge.pending { background: var(--ink-faint); }
@@ -685,6 +698,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   text-overflow: ellipsis;
   max-width: 110px;
 }
+
 .kanban-ghost {
   opacity: 0.3;
   background: var(--accent-pale) !important;
