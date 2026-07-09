@@ -61,6 +61,27 @@
         <p style="margin-top:16px;"><a class="btn btn-primary" href="index.html">返回案件總覽</a></p>
       </div>`;
   }
+  // 在 project.js 裡面加入這個函數
+function initSortable() {
+    const listElement = document.getElementById('你的清單ID'); // 請改成你渲染進度項目的容器 ID
+    if (!listElement) return;
+
+    new Sortable(listElement, {
+        animation: 150,
+        handle: '.drag-handle', // 如果你想限制只有「拖曳圖示」才能拖動，可以加上這個類別
+        onEnd: function (evt) {
+            // 這裡會觸發排序後的處理
+            // 你需要自行補上將新的順序存入 Firebase 的邏輯
+            console.log("新順序:", evt.oldIndex, "變更為", evt.newIndex);
+        }
+    });
+}
+
+// 在 renderStageTimeline 渲染完 DOM 之後呼叫它
+// renderStageTimeline() {
+//    ... 你的渲染邏輯 ...
+//    initSortable(); // 渲染後立即初始化
+// }
 
   // 目前階段完全依「工程進度」裡各期間的完成狀況自動判斷，
   // 不再提供手動覆蓋的功能（畫面上也不會出現手動調整的按鈕列）。
