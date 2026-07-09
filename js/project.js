@@ -273,7 +273,6 @@
 
   const STATUS_LABEL = { done:'已完成', progress:'進行中', pending:'未開始' };
   const SEGMENT_LABELS = DataStore.STAGE_LABELS.slice(0, -1).map((label, i) => `${label} → ${DataStore.STAGE_LABELS[i+1]}`);
-  let currentSegmentIdx = null;
 
   function renderNoteList(note){
     if(!note) return '';
@@ -307,9 +306,6 @@
     tasks.forEach(t => (t.attachments||[]).forEach(a => { if(a.type==='image') allImages.push({url:a.url, caption:`${t.name} — ${a.name||''}`}); }));
     currentTasks = tasks;
 
-    const counts = [0,0,0,0];
-    tasks.forEach(t => { const seg = t.phase ?? 0; if(counts[seg] !== undefined) counts[seg]++; });
-
     let maxActiveSeg = -1;
     tasks.forEach(t => {
       if(t.status === 'done' || t.status === 'progress'){
@@ -329,130 +325,111 @@
         </div>`;
       if(i < stages.length - 1){
         const segActive = i <= maxActiveSeg;
+        const segTasks = tasks.filter(t => (t.phase ?? 0) === i).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+        const dotsHtml = segTasks.map(t => `<button type="button" class="phase-dot status-${t.status}" data-task-id="${t.id}" title="${escapeHtml(t.name)}"></button>`).join('');
         html += `
-          <button type="button" class="phase-segment ${segActive?'active':''}" data-seg="${i}">
+          <div class="phase-segment ${segActive?'active':''}" data-seg="${i}">
             <div class="phase-segment-line"></div>
-            <div class="phase-segment-badge ${counts[i]>0?'has-items':''}">${counts[i]>0 ? counts[i]+' 筆紀錄' : '點擊新增'}</div>
-          </button>`;
+            <div class="phase-segment-dots">
+              ${dotsHtml}
+              ${window.isAdmin ? `<button type="button" class="phase-dot-add" data-seg="${i}" title="新增紀錄">＋</button>` : ''}
+            </div>
+          </div>`;
       }
     });
 
     container.innerHTML = html;
 
-    container.querySelectorAll('.phase-segment').forEach(el => {
-      el.addEventListener('click', () => openSegmentModal(Number(el.dataset.seg)));
+    container.querySelectorAll('.phase-dot').forEach(el => {
+      el.addEventListener('click', () => openTaskDetailModal(el.dataset.taskId));
+    });
+    container.querySelectorAll('.phase-dot-add').forEach(el => {
+      el.addEventListener('click', () => openAddTaskModal(Number(el.dataset.seg)));
     });
   }
 
-  function openSegmentModal(segIdx){
-    currentSegmentIdx = segIdx;
-    document.getElementById('segmentModalTitle').textContent = SEGMENT_LABELS[segIdx];
-    renderSegmentList();
-    document.getElementById('segmentModal').classList.add('open');
-  }
+  function openTaskDetailModal(taskId){
+    const t = currentTasks.find(x => x.id === taskId);
+    if(!t) return;
 
-  function renderSegmentList(){
-    const list = document.getElementById('segmentList');
-    const items = currentTasks
-      .filter(t => (t.phase ?? 0) === currentSegmentIdx)
-      .sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const modal = document.getElementById('taskDetailModal');
+    const body = document.getElementById('taskDetailBody');
 
-    if(items.length === 0){
-      list.innerHTML = `<div class="empty-state"><h4>這段期間還沒有紀錄</h4><p>點下方「新增紀錄」開始記錄，例如三書送審、材料送審。</p></div>`;
-      return;
-    }
-
-    list.innerHTML = items.map(t => {
-      const attachHtml = (t.attachments||[]).map(a => {
-        if(a.type === 'image'){
-          const imgIndex = allImages.findIndex(x => x.url === a.url);
-          return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
-        }
-        return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
-      }).join('');
-
-      return `
-      <div class="segment-item" data-task-id="${t.id}">
-        <div class="segment-item-head">
-          <h5>${escapeHtml(t.name)}</h5>
-          <span class="segment-item-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
-        </div>
-        <div class="segment-item-body">
-          <div class="stage-card-head">
-            <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
-          </div>
-          ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
-          ${renderNoteList(t.note)}
-          ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
-          ${window.isAdmin ? `
-          <div class="stage-controls">
-            <div class="lp-status-row">
-              <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
-              <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
-              <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
-            </div>
-            <div class="stage-controls-row">
-              <label class="btn btn-ghost btn-sm stage-upload">
-                ＋ 新增照片／檔案
-                <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
-              </label>
-              <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯</button>
-              <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除</button>
-            </div>
-          </div>` : ''}
-        </div>
-      </div>`;
+    const attachHtml = (t.attachments||[]).map(a => {
+      if(a.type === 'image'){
+        const imgIndex = allImages.findIndex(x => x.url === a.url);
+        return `<div class="thumb" data-img-index="${imgIndex}" title="${escapeHtml(a.name||'')}"><img src="${a.url}" alt="${escapeHtml(a.name||'')}" loading="lazy"></div>`;
+      }
+      return `<div class="thumb filetype" title="${escapeHtml(a.name||'')}">📄<br>${escapeHtml((a.name||'檔案').slice(0,8))}</div>`;
     }).join('');
 
-    list.querySelectorAll('.segment-item-head').forEach(head => {
-      head.addEventListener('click', () => {
-        head.closest('.segment-item').classList.toggle('expanded');
+    body.innerHTML = `
+      <div class="stage-card-head">
+        <span class="status-pill ${t.status}">${STATUS_LABEL[t.status]||'未開始'}</span>
+        <span class="stage-dates">${fmtDate(t.start)} － ${fmtDate(t.end)}</span>
+      </div>
+      <h4>${escapeHtml(t.name)}</h4>
+      <div class="stage-owner" style="color:var(--accent); font-weight:600;">${escapeHtml(SEGMENT_LABELS[t.phase ?? 0])}</div>
+      ${t.owner ? `<div class="stage-owner">${escapeHtml(t.owner)}</div>` : ''}
+      ${renderNoteList(t.note)}
+      ${attachHtml ? `<div class="stage-attach">${attachHtml}</div>` : ''}
+      ${window.isAdmin ? `
+      <div class="stage-controls">
+        <div class="lp-status-row">
+          <button class="lp-status-btn ${t.status==='pending'?'active':''}" data-status="pending">未開始</button>
+          <button class="lp-status-btn ${t.status==='progress'?'active':''}" data-status="progress">進行中</button>
+          <button class="lp-status-btn ${t.status==='done'?'active':''}" data-status="done">已完成</button>
+        </div>
+        <div class="stage-controls-row">
+          <label class="btn btn-ghost btn-sm stage-upload">
+            ＋ 新增照片／檔案
+            <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" data-upload-for="${t.id}">
+          </label>
+          <button class="btn btn-ghost btn-sm stage-edit-btn" data-edit-task="${t.id}">編輯</button>
+          <button class="btn btn-danger btn-sm stage-delete-btn" data-delete-task="${t.id}">刪除</button>
+        </div>
+      </div>` : ''}
+    `;
+
+    body.querySelectorAll('.thumb[data-img-index]').forEach(el => {
+      el.addEventListener('click', () => openLightbox(Number(el.dataset.imgIndex)));
+    });
+
+    const editBtn = body.querySelector('.stage-edit-btn');
+    if(editBtn){
+      editBtn.addEventListener('click', () => {
+        modal.classList.remove('open');
+        openEditTaskModal(editBtn.dataset.editTask);
       });
-    });
+    }
 
-    list.querySelectorAll('.thumb[data-img-index]').forEach(el => {
-      el.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(Number(el.dataset.imgIndex)); });
-    });
-
-    list.querySelectorAll('.stage-edit-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('segmentModal').classList.remove('open');
-        openEditTaskModal(btn.dataset.editTask);
-      });
-    });
-
-    list.querySelectorAll('.stage-delete-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const taskId = btn.dataset.deleteTask;
-        const t = currentTasks.find(x => x.id === taskId);
-        const ok = confirm(`確定要刪除「${t ? t.name : ''}」這筆紀錄嗎？此動作無法復原。`);
+    const deleteBtn = body.querySelector('.stage-delete-btn');
+    if(deleteBtn){
+      deleteBtn.addEventListener('click', async () => {
+        const ok = confirm(`確定要刪除「${t.name}」這筆紀錄嗎？此動作無法復原。`);
         if(!ok) return;
-        btn.disabled = true; btn.textContent = '刪除中…';
+        deleteBtn.disabled = true; deleteBtn.textContent = '刪除中…';
         try{
-          await DataStore.deleteTask(caseId, taskId);
+          await DataStore.deleteTask(caseId, t.id);
+          modal.classList.remove('open');
           await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-          renderSegmentList();
         } catch(err){
           console.error(err);
           alert('刪除失敗，請確認網路連線或 Firebase 設定後再試一次。');
-          btn.disabled = false; btn.textContent = '刪除';
+          deleteBtn.disabled = false; deleteBtn.textContent = '刪除';
         }
       });
-    });
+    }
 
-    list.querySelectorAll('.lp-status-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const taskId = btn.closest('.segment-item').dataset.taskId;
+    body.querySelectorAll('.lp-status-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
         const newStatus = btn.dataset.status;
         const statusRow = btn.closest('.lp-status-row');
         statusRow.querySelectorAll('.lp-status-btn').forEach(b => b.disabled = true);
         try{
-          await DataStore.updateTaskStatus(caseId, taskId, newStatus);
+          await DataStore.updateTaskStatus(caseId, t.id, newStatus);
           await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-          renderSegmentList();
+          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
         } catch(err){
           console.error(err);
           alert('更新狀態失敗，請確認網路連線或 Firebase 設定。');
@@ -461,36 +438,33 @@
       });
     });
 
-    list.querySelectorAll('input[data-upload-for]').forEach(input => {
-      input.addEventListener('change', async (e) => {
-        e.stopPropagation();
+    const uploadInput = body.querySelector('input[data-upload-for]');
+    if(uploadInput){
+      uploadInput.addEventListener('change', async e => {
         const file = e.target.files[0];
         if(!file) return;
-        const taskId = input.dataset.uploadFor;
-        const label = input.closest('.stage-upload');
+        const label = body.querySelector('.stage-upload');
         label.style.opacity = '0.5';
         try{
-          await DataStore.uploadAttachment(caseId, taskId, file);
+          await DataStore.uploadAttachment(caseId, t.id, file);
           await renderStageTimeline();
-          renderSegmentList();
+          openTaskDetailModal(t.id); // 重新整理彈窗內容，保持開啟
         } catch(err){
           console.error(err);
           alert('上傳失敗，請確認網路連線或 Firebase Storage 設定。');
           label.style.opacity = '1';
         }
       });
-    });
+    }
+
+    modal.classList.add('open');
   }
 
-  document.getElementById('segmentModalClose').addEventListener('click', () => {
-    document.getElementById('segmentModal').classList.remove('open');
+  document.getElementById('taskDetailClose').addEventListener('click', () => {
+    document.getElementById('taskDetailModal').classList.remove('open');
   });
-  document.getElementById('segmentModal').addEventListener('click', e => {
-    if(e.target.id === 'segmentModal') e.currentTarget.classList.remove('open');
-  });
-  document.getElementById('btnAddSegmentRecord').addEventListener('click', () => {
-    document.getElementById('segmentModal').classList.remove('open');
-    openAddTaskModal(currentSegmentIdx);
+  document.getElementById('taskDetailModal').addEventListener('click', e => {
+    if(e.target.id === 'taskDetailModal') e.currentTarget.classList.remove('open');
   });
 
   const lb = document.getElementById('lightbox');
@@ -680,7 +654,7 @@
       });
       editTaskModal.classList.remove('open');
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-      openSegmentModal(newPhase);
+      openTaskDetailModal(taskId);
     } catch(err){
       console.error(err);
       alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
@@ -709,7 +683,7 @@
     btn.disabled = true; btn.textContent = '儲存中…';
     try{
       const savedPhase = Number(document.getElementById('t-phase').value);
-      await DataStore.addTask(caseId, {
+      const created = await DataStore.addTask(caseId, {
         name,
         phase: savedPhase,
         owner: document.getElementById('t-owner').value.trim(),
@@ -721,7 +695,7 @@
       taskModal.classList.remove('open');
       resetAddTaskForm(savedPhase);
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
-      openSegmentModal(savedPhase);
+      if(created && created.id) openTaskDetailModal(created.id);
     } catch(err){
       console.error(err);
       alert('新增失敗，請確認網路連線或 Firebase 設定後再試一次。');
@@ -859,10 +833,7 @@
   });
 
   function applyRoleUI(){
-    if(!window.isAdmin){
-      const btnRecord = document.getElementById('btnAddSegmentRecord');
-      if(btnRecord) btnRecord.style.display = 'none';
-    }
+    // 新增紀錄的「＋」按鈕已經在 renderStageTimeline() 依 window.isAdmin 決定要不要輸出，這裡不需要額外處理
   }
 
   function init(){
