@@ -570,37 +570,122 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   .shell{ padding: 0 16px 60px; }
   .title-block{ padding: 20px; }
 }
-/* 看板布局 */
+
+/* ============================================================
+   全新流暢看板排版視覺集 (Kanban Board Layouts)
+   ============================================================ */
 .kanban-board {
-    display: flex;
-    gap: 15px;
-    padding: 20px;
-    overflow-x: auto;
-    align-items: flex-start;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 16px !important;
+  overflow-x: auto !important;
+  padding: 10px 4px 20px !important;
+  align-items: flex-start !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 580px;
 }
 .kanban-col {
-    background: #f0f4f8;
-    border-radius: 8px;
-    width: 250px;
-    min-width: 250px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
+  flex: 0 0 250px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-m);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  max-height: 520px;
 }
-.kanban-col h3 { font-size: 14px; color: var(--ink-soft); margin: 0 0 10px 5px; }
+.kanban-col-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 4px;
+}
+.kanban-col-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+.kanban-add-node-btn {
+  background: var(--accent-pale);
+  border: 1px dashed var(--accent);
+  color: var(--accent-deep);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.kanban-add-node-btn:hover {
+  background: var(--accent-deep);
+  color: #fff;
+}
 .drop-zone {
-    min-height: 300px;
-    border: 2px dashed transparent;
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
-.drop-zone.drag-over { border-color: var(--accent); background: rgba(61,126,166,0.1); }
-
-/* 卡片樣式 */
 .task-card {
-    background: white;
-    padding: 12px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    cursor: grab;
-    border-left: 4px solid var(--accent);
+  background: var(--bg);
+  border-radius: var(--radius-s);
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  cursor: grab;
+  border-left: 4px solid var(--ink-faint);
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  background: #fff;
+}
+.task-card.status-done { border-left-color: var(--ok); }
+.task-card.status-progress { border-left-color: var(--brick); }
+.task-card.status-pending { border-left-color: var(--ink-faint); }
+
+.task-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.task-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.status-badge {
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 600;
+}
+.status-badge.done { background: var(--ok); }
+.status-badge.progress { background: var(--brick); }
+.status-badge.pending { background: var(--ink-faint); }
+
+.task-owner {
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+.kanban-ghost {
+  opacity: 0.3;
+  background: var(--accent-pale) !important;
 }
