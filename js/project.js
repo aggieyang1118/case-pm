@@ -26,6 +26,7 @@
   let currentTasks = []; // 目前的階段清單，供編輯 modal 查找用
   let currentFlow = [];
   
+  // 💡 補回核心全域變數
   const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
   let calendarViewDate = new Date();
   let allTodos = [];
@@ -806,7 +807,7 @@
     }
   });
 
-  // 🔥 優化同步連動版：儲存事項時自動連動推送到「首頁跑馬燈」與 Google日曆
+  // 🔥 串接新增事項自動連動首頁跑馬燈
   document.getElementById('btnSaveTodo').addEventListener('click', async () => {
     const text = document.getElementById('d-text').value.trim();
     if(!text){ alert('請輸入事項內容'); return; }
@@ -836,7 +837,7 @@
       // 2. 自動智慧同步推送到「首頁跑馬燈」
       const shortName = kase.name.length > 10 ? kase.name.slice(0, 10) + '...' : kase.name;
       await DataStore.addWeeklyItem({
-        text: `【${shortName}】${text}`,
+        text: "【" + shortName + "】" + text,
         due: fmtDate(date),
         urgent: document.getElementById('d-priority').value === 'high'
       });
