@@ -91,36 +91,36 @@ function seedData(){
     ],
     tasks: {
       c1: [
-        { id:'t0', name:'開工', owner:'公所工務課', status:'done', start:'2026-03-10', end:'2026-03-10', note:'2026年3月10日奉核准開工，詳如開工報告函。', attachments:[
+        { id:'t0', name:'開工', phase:0, owner:'公所工務課', status:'done', start:'2026-03-10', end:'2026-03-10', note:'2026年3月10日奉核准開工，詳如開工報告函。', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1568992687947-868a62a9f521?w=600&q=80', name:'開工報告函'},
         ]},
-        { id:'t1', name:'路面刨除與級配整平', owner:'順成營造 / 王工務', status:'done', start:'2026-03-10', end:'2026-04-05', note:'刨除舊有路面至設計高程，級配壓實達 95% 以上。', attachments:[
+        { id:'t1', name:'路面刨除與級配整平', phase:1, owner:'順成營造 / 王工務', status:'done', start:'2026-03-10', end:'2026-04-05', note:'刨除舊有路面至設計高程，級配壓實達 95% 以上。', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=600&q=80', name:'刨除作業照片'},
           {type:'image', url:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80', name:'級配整平'},
         ]},
-        { id:'t2', name:'瀝青混凝土鋪設', owner:'順成營造 / 王工務', status:'progress', start:'2026-04-06', end:'2026-05-20', note:'配比設計已送審核准，分兩層鋪設。', attachments:[
+        { id:'t2', name:'瀝青混凝土鋪設', phase:1, owner:'順成營造 / 王工務', status:'progress', start:'2026-04-06', end:'2026-05-20', note:'配比設計已送審核准，分兩層鋪設。', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&q=80', name:'鋪面作業'},
           {type:'file', name:'配比設計送審單.pdf'},
         ]},
-        { id:'t3', name:'人行道透水鋪面施作', owner:'順成營造 / 李技師', status:'pending', start:'2026-05-21', end:'2026-07-15', attachments:[] },
-        { id:'t4', name:'標線標誌復原', owner:'順成營造', status:'pending', start:'2026-07-16', end:'2026-08-05', attachments:[] },
+        { id:'t3', name:'人行道透水鋪面施作', phase:2, owner:'順成營造 / 李技師', status:'pending', start:'2026-05-21', end:'2026-07-15', attachments:[] },
+        { id:'t4', name:'標線標誌復原', phase:2, owner:'順成營造', status:'pending', start:'2026-07-16', end:'2026-08-05', attachments:[] },
       ],
       c2: [
-        { id:'t5', name:'側溝清淤', owner:'福運土木', status:'done', start:'2026-01-15', end:'2026-02-10', attachments:[
+        { id:'t5', name:'側溝清淤', phase:1, owner:'福運土木', status:'done', start:'2026-01-15', end:'2026-02-10', attachments:[
           {type:'image', url:'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80', name:'清淤現況'},
         ]},
-        { id:'t6', name:'箱涵結構修復', owner:'福運土木', status:'done', start:'2026-02-11', end:'2026-03-25', attachments:[] },
-        { id:'t7', name:'驗收與結算', owner:'公所工程科', status:'done', start:'2026-03-26', end:'2026-04-20', attachments:[
+        { id:'t6', name:'箱涵結構修復', phase:1, owner:'福運土木', status:'done', start:'2026-02-11', end:'2026-03-25', attachments:[] },
+        { id:'t7', name:'驗收與結算', phase:3, owner:'公所工程科', status:'done', start:'2026-03-26', end:'2026-04-20', attachments:[
           {type:'file', name:'驗收紀錄表.pdf'},
         ]},
       ],
       c3: [
-        { id:'t8', name:'鋼構護欄拆除', owner:'志堅工程', status:'progress', start:'2026-06-01', end:'2026-06-30', attachments:[] },
-        { id:'t9', name:'伸縮縫材料進場', owner:'志堅工程', status:'pending', start:'2026-07-01', end:'2026-07-20', attachments:[] },
-        { id:'t10', name:'新式護欄安裝', owner:'志堅工程', status:'pending', start:'2026-07-21', end:'2026-10-15', attachments:[] },
+        { id:'t8', name:'鋼構護欄拆除', phase:1, owner:'志堅工程', status:'progress', start:'2026-06-01', end:'2026-06-30', attachments:[] },
+        { id:'t9', name:'伸縮縫材料進場', phase:1, owner:'志堅工程', status:'pending', start:'2026-07-01', end:'2026-07-20', attachments:[] },
+        { id:'t10', name:'新式護欄安裝', phase:2, owner:'志堅工程', status:'pending', start:'2026-07-21', end:'2026-10-15', attachments:[] },
       ],
       c4: [
-        { id:'t11', name:'決標公告', owner:'公所採購科', status:'progress', start:'2026-07-01', end:'2026-07-20', attachments:[] },
+        { id:'t11', name:'決標公告', phase:0, owner:'公所採購科', status:'progress', start:'2026-07-01', end:'2026-07-20', attachments:[] },
       ],
     },
     flow: {
@@ -295,36 +295,7 @@ const LocalBackend = {
    模式二：Firebase Firestore + Storage
    ------------------------------------------------------------ */
 const FirebaseBackend = {
-  async _seedIfEmpty(){
-    const snap = await window.db.collection('cases').limit(1).get();
-    if(!snap.empty) return;
-    const seed = seedData();
-    const batch = window.db.batch();
-    seed.cases.forEach(c => {
-      const { id, ...rest } = c;
-      const ref = window.db.collection('cases').doc(id);
-      batch.set(ref, rest);
-      (seed.tasks[id]||[]).forEach(t => {
-        const { id: tid, ...trest } = t;
-        batch.set(ref.collection('tasks').doc(tid), trest);
-      });
-      (seed.flow[id]||[]).forEach((f, i) => {
-        batch.set(ref.collection('flow').doc('f'+i), { ...f, order: i });
-      });
-      (seed.todos[id]||[]).forEach(d => {
-        const { id: did, ...drest } = d;
-        batch.set(ref.collection('todos').doc(did), drest);
-      });
-    });
-    seed.weeklyGlobal.forEach(w => {
-      const { id, ...rest } = w;
-      batch.set(window.db.collection('weeklyGlobal').doc(id), rest);
-    });
-    await batch.commit();
-  },
-
   async getCases(){
-    await this._seedIfEmpty();
     const snap = await window.db.collection('cases').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
@@ -356,7 +327,6 @@ const FirebaseBackend = {
     await caseRef.delete();
   },
   async getWeeklyGlobal(){
-    await this._seedIfEmpty();
     const snap = await window.db.collection('weeklyGlobal').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
