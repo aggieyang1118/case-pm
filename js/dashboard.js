@@ -86,7 +86,16 @@
   });
 
   const modal = document.getElementById('addCaseModal');
-  document.getElementById('btnAddCase').addEventListener('click', () => modal.classList.add('open'));
+  const ADD_CASE_FIELD_IDS = ['f-name','f-code','f-contract','f-executed','f-dispatched','f-expansion','f-undispatched','f-available','f-contractor','f-progress'];
+
+  function resetAddCaseForm(){
+    ADD_CASE_FIELD_IDS.forEach(id => { document.getElementById(id).value = ''; });
+  }
+
+  document.getElementById('btnAddCase').addEventListener('click', () => {
+    resetAddCaseForm();
+    modal.classList.add('open');
+  });
   document.getElementById('btnCancelAdd').addEventListener('click', () => modal.classList.remove('open'));
   modal.addEventListener('click', e => { if(e.target === modal) modal.classList.remove('open'); });
 
@@ -110,6 +119,7 @@
         startDate: '', endDate: '',
       });
       modal.classList.remove('open');
+      resetAddCaseForm();
       await loadCasesAndRender();
     } catch(err){
       console.error(err);
