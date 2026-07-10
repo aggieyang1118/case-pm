@@ -70,8 +70,10 @@
     }
   }
 
+  // 💡 已成功補上後擴金額 (expansionAmount) 的即時渲染
   async function renderTitleBlock(){
     const contract = kase.contractAmount || 0;
+    const expansion = kase.expansionAmount || 0; // 🔥 補上這行：讀取後擴金額
     const actual = kase.executedAmount || 0;
     const dispatched = kase.dispatchedAmount || 0;
     const undispatched = kase.undispatchedAmount || 0;
@@ -95,6 +97,7 @@
       </div>
       <div class="tb-stats-grid">
         <div class="stat-box"><label>契約金額</label><div class="val">${money(contract)}</div></div>
+        <div class="stat-box"><label>後擴金額</label><div class="val">${money(expansion)}</div></div>
         <div class="stat-box"><label>實支金額</label><div class="val">${money(actual)}</div></div>
         <div class="stat-box"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
         <div class="stat-box"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
@@ -125,7 +128,6 @@
     }
   }
 
-  // 💡 安全防錯解鎖：逐一安全對齊 HTML ID，絕不讓任何 null 屬性中斷程式執行
   function openEditModal(){
     const fields = {
       'e-name': kase.name || '',
@@ -880,7 +882,6 @@
     });
   }
 
-  // 💡 串接新增事項自動連動首頁跑馬燈
   document.getElementById('btnSaveTodo').addEventListener('click', async () => {
     const text = document.getElementById('d-text').value.trim();
     if(!text){ alert('請輸入事項內容'); return; }
@@ -899,15 +900,13 @@
 
     const btn = document.getElementById('btnSaveTodo');
     btn.disabled = true; btn.textContent = '儲存中…';
-    try{
-      // 1. 同步寫入本案待辦日曆
+    try {
       await DataStore.addTodo(caseId, {
         text,
         date,
         priority: document.getElementById('d-priority').value,
       });
 
-      // 2. 自動智慧同步推送到「首頁跑馬燈」
       const shortName = kase.name.length > 10 ? kase.name.slice(0, 10) + '...' : kase.name;
       await DataStore.addWeeklyItem({
         text: "【" + shortName + "】" + text,
@@ -915,7 +914,6 @@
         urgent: document.getElementById('d-priority').value === 'high'
       });
 
-      // 3. 同步觸發 Google 日曆一鍵新增
       if(wantsCalendar){
         const popup = window.CalendarIntegration.openQuickAdd({
           title: text,
