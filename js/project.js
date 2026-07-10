@@ -59,12 +59,15 @@
   }
 
   function showNotFound(msg){
-    document.querySelector('.shell').innerHTML = `
-      <div class="empty-state" style="margin-top:60px;">
-        <h4>${msg ? escapeHtml(msg) : '找不到這筆標案'}</h4>
-        <p>它可能已被刪除，或連結不正確。</p>
-        <p style="margin-top:16px;"><a class="btn btn-primary" href="index.html">返回案件總覽</a></p>
-      </div>`;
+    const shell = document.querySelector('.shell');
+    if(shell) {
+      shell.innerHTML = `
+        <div class="empty-state" style="margin-top:60px;">
+          <h4>${msg ? escapeHtml(msg) : '找不到這筆標案'}</h4>
+          <p>它可能已被刪除，或連結不正確。</p>
+          <p style="margin-top:16px;"><a class="btn btn-primary" href="index.html">返回案件總覽</a></p>
+        </div>`;
+    }
   }
 
   async function renderTitleBlock(){
@@ -75,7 +78,10 @@
     const available = kase.availableAmount || 0;
     const rate = contract ? Math.min(999, Math.round((actual / contract) * 100)) : 0;
 
-    document.getElementById('titleBlock').innerHTML = `
+    const titleBlock = document.getElementById('titleBlock');
+    if(!titleBlock) return;
+    
+    titleBlock.innerHTML = `
       <div class="tb-name">
         <div class="eyebrow">${escapeHtml(kase.code)} · ${escapeHtml(kase.contractor)}</div>
         <div class="tb-name-row">
@@ -119,7 +125,7 @@
     }
   }
 
-  // 💡 安全防錯優化：即使 HTML 欄位 ID 稍有對不上，也絕對不會拋出 null 錯誤中斷程式
+  // 💡 安全防錯解鎖：逐一安全對齊 HTML ID，絕不讓任何 null 屬性中斷程式執行
   function openEditModal(){
     const fields = {
       'e-name': kase.name || '',
@@ -150,53 +156,54 @@
     editModal.addEventListener('click', e => { if(e.target === editModal) editModal.classList.remove('open'); });
   }
 
-  // 💡 安全防錯優化：讀取欄位內容時自動做安全性檢查
-  document.getElementById('btnSaveEdit').addEventListener('click', async () => {
-    const nameEl = document.getElementById('e-name');
-    const name = nameEl ? nameEl.value.trim() : '';
-    if(!name){ alert('請輸入標案名稱'); return; }
-    
-    const btn = document.getElementById('btnSaveEdit');
-    if(btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
-    
-    try{
-      const getValue = id => {
-        const el = document.getElementById(id);
-        return el ? (el.type === 'number' ? Number(el.value) : el.value.trim()) : null;
-      };
+  const btnSaveEdit = document.getElementById('btnSaveEdit');
+  if(btnSaveEdit){
+    btnSaveEdit.addEventListener('click', async () => {
+      const nameEl = document.getElementById('e-name');
+      const name = nameEl ? nameEl.value.trim() : '';
+      if(!name){ alert('請輸入標案名稱'); return; }
+      
+      btnSaveEdit.disabled = true; btnSaveEdit.textContent = '儲存中…';
+      
+      try{
+        const getValue = id => {
+          const el = document.getElementById(id);
+          return el ? (el.type === 'number' ? Number(el.value) : el.value.trim()) : null;
+        };
 
-      const patch = {
-        name,
-        code: getValue('e-code') ?? kase.code,
-        contractAmount: getValue('e-contract') ?? 0,
-        executedAmount: getValue('e-executed') ?? 0,
-        dispatchedAmount: getValue('e-dispatched') ?? getValue('f-dispatched') ?? 0,
-        expansionAmount: getValue('e-expansion') ?? 0,
-        undispatchedAmount: getValue('e-undispatched') ?? 0,
-        availableAmount: getValue('e-available') ?? 0,
-        contractor: getValue('e-contractor') || '廠商名稱',
-        latestProgress: getValue('e-progress') ?? '',
-      };
-      
-      await DataStore.updateCase(caseId, patch);
-      Object.assign(kase, patch);
-      
-      if(editModal) editModal.classList.remove('open');
-      
-      const titleEl = document.getElementById('pageTitle');
-      if(titleEl) titleEl.textContent = kase.name;
-      const crumbEl = document.getElementById('crumbName');
-      if(crumbEl) crumbEl.textContent = kase.name;
-      
-      document.title = kase.name + '｜工程案件管理';
-      await renderTitleBlock();
-    } catch(err){
-      console.error(err);
-      alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
-    } finally{
-      if(btn) { btn.disabled = false; btn.textContent = '儲存變更'; }
-    }
-  });
+        const patch = {
+          name,
+          code: getValue('e-code') ?? kase.code,
+          contractAmount: getValue('e-contract') ?? 0,
+          executedAmount: getValue('e-executed') ?? 0,
+          dispatchedAmount: getValue('e-dispatched') ?? 0,
+          expansionAmount: getValue('e-expansion') ?? 0,
+          undispatchedAmount: getValue('e-undispatched') ?? 0,
+          availableAmount: getValue('e-available') ?? 0,
+          contractor: getValue('e-contractor') || '廠商名稱',
+          latestProgress: getValue('e-progress') ?? '',
+        };
+        
+        await DataStore.updateCase(caseId, patch);
+        Object.assign(kase, patch);
+        
+        if(editModal) editModal.classList.remove('open');
+        
+        const titleEl = document.getElementById('pageTitle');
+        if(titleEl) titleEl.textContent = kase.name;
+        const crumbEl = document.getElementById('crumbName');
+        if(crumbEl) crumbEl.textContent = kase.name;
+        
+        document.title = kase.name + '｜工程案件管理';
+        await renderTitleBlock();
+      } catch(err){
+        console.error(err);
+        alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
+      } finally{
+        btnSaveEdit.disabled = false; btnSaveEdit.textContent = '儲存變更';
+      }
+    });
+  }
 
   function initTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -229,8 +236,10 @@
 
   function populatePhaseSelects(){
     const optionsHtml = SEGMENT_LABELS.map((label, i) => `<option value="${i}">${escapeHtml(label)}</option>`).join('');
-    document.getElementById('t-phase').innerHTML = optionsHtml;
-    document.getElementById('et-phase').innerHTML = optionsHtml;
+    const tPhase = document.getElementById('t-phase');
+    if(tPhase) tPhase.innerHTML = optionsHtml;
+    const etPhase = document.getElementById('et-phase');
+    if(etPhase) etPhase.innerHTML = optionsHtml;
   }
 
   // ---------------- 橫向滑動 Kanban 拖曳看板 ----------------
@@ -451,24 +460,28 @@
   const lbCaption = document.getElementById('lbCaption');
   let lbIndex = 0;
 
+  if(lb){
+    document.getElementById('lbClose').addEventListener('click', ()=> lb.classList.remove('open'));
+    document.getElementById('lbPrev').addEventListener('click', ()=>{ lbIndex = (lbIndex-1+allImages.length)%allImages.length; updateLightbox(); });
+    document.getElementById('lbNext').addEventListener('click', ()=>{ lbIndex = (lbIndex+1)%allImages.length; updateLightbox(); });
+    lb.addEventListener('click', e => { if(e.target === lb) lb.classList.remove('open'); });
+  }
+
   function openLightbox(idx){
-    if(!allImages.length) return;
+    if(!allImages.length || !lb) return;
     lbIndex = idx;
     updateLightbox();
     lb.classList.add('open');
   }
   function updateLightbox(){
+    if(!lbImg || !lbCaption) return;
     const item = allImages[lbIndex];
     lbImg.src = item.url;
     lbImg.alt = item.caption;
     lbCaption.textContent = item.caption;
   }
-  document.getElementById('lbClose').addEventListener('click', ()=> lb.classList.remove('open'));
-  document.getElementById('lbPrev').addEventListener('click', ()=>{ lbIndex = (lbIndex-1+allImages.length)%allImages.length; updateLightbox(); });
-  document.getElementById('lbNext').addEventListener('click', ()=>{ lbIndex = (lbIndex+1)%allImages.length; updateLightbox(); });
-  lb.addEventListener('click', e => { if(e.target === lb) lb.classList.remove('open'); });
   document.addEventListener('keydown', e => {
-    if(!lb.classList.contains('open')) return;
+    if(!lb || !lb.classList.contains('open')) return;
     if(e.key === 'Escape') lb.classList.remove('open');
     if(e.key === 'ArrowLeft') document.getElementById('lbPrev').click();
     if(e.key === 'ArrowRight') document.getElementById('lbNext').click();
@@ -476,6 +489,7 @@
 
   async function renderFlow(){
     const container = document.getElementById('flowList');
+    if(!container) return;
     container.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
     let flow;
     try{
@@ -506,6 +520,13 @@
   }
 
   const flowModal = document.getElementById('flowModal');
+  if(flowModal){
+    const btnAddFlow = document.getElementById('btnAddFlow');
+    if(btnAddFlow) btnAddFlow.addEventListener('click', () => openFlowModal(null));
+    document.getElementById('btnCancelFlow').addEventListener('click', () => flowModal.classList.remove('open'));
+    flowModal.addEventListener('click', e => { if(e.target === flowModal) flowModal.classList.remove('open'); });
+  }
+
   function openFlowModal(stepId){
     const f = stepId ? currentFlow.find(x => x.id === stepId) : null;
     document.getElementById('flowModalTitle').textContent = f ? '編輯流程' : '新增流程';
@@ -517,9 +538,6 @@
     document.getElementById('btnDeleteFlow').hidden = !f;
     flowModal.classList.add('open');
   }
-  document.getElementById('btnAddFlow').addEventListener('click', () => openFlowModal(null));
-  document.getElementById('btnCancelFlow').addEventListener('click', () => flowModal.classList.remove('open'));
-  flowModal.addEventListener('click', e => { if(e.target === flowModal) flowModal.classList.remove('open'); });
 
   document.getElementById('btnSaveFlow').addEventListener('click', async () => {
     const title = document.getElementById('fl-title').value.trim();
@@ -573,6 +591,7 @@
 
   async function renderTodos(){
     const grid = document.getElementById('calGrid');
+    if(!grid) return;
     grid.innerHTML = `<div class="empty-state"><h4>載入中…</h4></div>`;
     try{
       allTodos = await DataStore.getTodos(caseId);
@@ -589,12 +608,15 @@
     if(!window.CalendarIntegration || !window.CalendarIntegration.isEmbedConfigured()) return;
     const wrap = document.getElementById('gcalEmbedWrap');
     const frame = document.getElementById('gcalEmbedFrame');
-    if(!frame.src) frame.src = window.CalendarIntegration.getEmbedUrl();
-    wrap.hidden = false;
+    if(wrap && frame) {
+      if(!frame.src) frame.src = window.CalendarIntegration.getEmbedUrl();
+      wrap.hidden = false;
+    }
   }
 
   function renderCalendarGrid(){
     const grid = document.getElementById('calGrid');
+    if(!grid) return;
     const year = calendarViewDate.getFullYear();
     const month = calendarViewDate.getMonth();
 
@@ -662,14 +684,20 @@
     editTodoModal.classList.add('open');
   }
 
-  document.getElementById('calPrevMonth').addEventListener('click', () => {
-    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
-    renderCalendarGrid();
-  });
-  document.getElementById('calNextMonth').addEventListener('click', () => {
-    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
-    renderCalendarGrid();
-  });
+  const btnCalPrev = document.getElementById('calPrevMonth');
+  if(btnCalPrev) {
+    btnCalPrev.addEventListener('click', () => {
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
+      renderCalendarGrid();
+    });
+  }
+  const btnCalNext = document.getElementById('calNextMonth');
+  if(btnCalNext) {
+    btnCalNext.addEventListener('click', () => {
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
+      renderCalendarGrid();
+    });
+  }
 
   function openEditTaskModal(taskId){
     const t = currentTasks.find(x => x.id === taskId);
@@ -686,8 +714,10 @@
   }
 
   const editTaskModal = document.getElementById('editTaskModal');
-  document.getElementById('btnCancelEditTask').addEventListener('click', () => editTaskModal.classList.remove('open'));
-  editTaskModal.addEventListener('click', e => { if(e.target === editTaskModal) editTaskModal.classList.remove('open'); });
+  if(editTaskModal){
+    document.getElementById('btnCancelEditTask').addEventListener('click', () => editTaskModal.classList.remove('open'));
+    editTaskModal.addEventListener('click', e => { if(e.target === editTaskModal) editTaskModal.classList.remove('open'); });
+  }
 
   document.getElementById('btnSaveEditTask').addEventListener('click', async () => {
     const name = document.getElementById('et-name').value.trim();
@@ -718,18 +748,27 @@
   });
 
   const taskModal = document.getElementById('addTaskModal');
+  if(taskModal){
+    document.getElementById('btnCancelTask').addEventListener('click', ()=> taskModal.classList.remove('open'));
+    taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
+  }
+
   const ADD_TASK_FIELD_IDS = ['t-name','t-owner','t-note','t-start','t-end'];
   function resetAddTaskForm(segIdx){
-    ADD_TASK_FIELD_IDS.forEach(id => { document.getElementById(id).value = ''; });
-    document.getElementById('t-status').value = 'pending';
-    document.getElementById('t-phase').value = String(segIdx ?? 0);
+    ADD_TASK_FIELD_IDS.forEach(id => { 
+      const el = document.getElementById(id);
+      if(el) el.value = ''; 
+    });
+    const statusEl = document.getElementById('t-status');
+    if(statusEl) statusEl.value = 'pending';
+    const phaseEl = document.getElementById('t-phase');
+    if(phaseEl) phaseEl.value = String(segIdx ?? 0);
   }
   function openAddTaskModal(segIdx){
     resetAddTaskForm(segIdx);
-    taskModal.classList.add('open');
+    if(taskModal) taskModal.classList.add('open');
   }
-  document.getElementById('btnCancelTask').addEventListener('click', ()=> taskModal.classList.remove('open'));
-  taskModal.addEventListener('click', e=>{ if(e.target===taskModal) taskModal.classList.remove('open'); });
+
   document.getElementById('btnSaveTask').addEventListener('click', async () => {
     const name = document.getElementById('t-name').value.trim();
     if(!name){ alert('請輸入項目名稱'); return; }
@@ -746,7 +785,7 @@
         end: document.getElementById('t-end').value,
         status: document.getElementById('t-status').value,
       });
-      taskModal.classList.remove('open');
+      if(taskModal) taskModal.classList.remove('open');
       resetAddTaskForm(savedPhase);
       await Promise.all([renderStageTimeline(), renderTitleBlock()]);
       if(created && created.id) openTaskDetailModal(created.id);
@@ -759,8 +798,10 @@
   });
 
   const editTodoModal = document.getElementById('editTodoModal');
-  document.getElementById('btnCancelEditTodo').addEventListener('click', () => editTodoModal.classList.remove('open'));
-  editTodoModal.addEventListener('click', e => { if(e.target === editTodoModal) editTodoModal.classList.remove('open'); });
+  if(editTodoModal){
+    document.getElementById('btnCancelEditTodo').addEventListener('click', () => editTodoModal.classList.remove('open'));
+    editTodoModal.addEventListener('click', e => { if(e.target === editTodoModal) editTodoModal.classList.remove('open'); });
+  }
 
   document.getElementById('btnSaveEditTodo').addEventListener('click', async () => {
     const text = document.getElementById('ed-text').value.trim();
@@ -805,6 +846,12 @@
   });
 
   const todoModal = document.getElementById('addTodoModal');
+  if(todoModal){
+    const btnAddTodo = document.getElementById('btnAddTodo');
+    if(btnAddTodo) btnAddTodo.addEventListener('click', () => openAddTodoModal(todayISO()));
+    document.getElementById('btnCancelTodo').addEventListener('click', ()=> todoModal.classList.remove('open'));
+    todoModal.addEventListener('click', e=>{ if(e.target===todoModal) todoModal.classList.remove('open'); });
+  }
 
   function openAddTodoModal(dateISO){
     document.getElementById('d-text').value = '';
@@ -812,35 +859,35 @@
     document.getElementById('d-priority').value = 'mid';
     document.getElementById('d-cal-toggle').checked = false;
     document.getElementById('calFields').hidden = true;
-    todoModal.classList.add('open');
+    if(todoModal) todoModal.classList.add('open');
     const calToggleField = document.getElementById('calToggleField');
     const isConfigured = window.CalendarIntegration && window.CalendarIntegration.isConfigured();
-    calToggleField.hidden = !isConfigured;
+    if(calToggleField) calToggleField.hidden = !isConfigured;
   }
 
-  document.getElementById('btnAddTodo').addEventListener('click', () => openAddTodoModal(todayISO()));
-  document.getElementById('btnCancelTodo').addEventListener('click', ()=> todoModal.classList.remove('open'));
-  todoModal.addEventListener('click', e=>{ if(e.target===todoModal) todoModal.classList.remove('open'); });
+  const dCalToggle = document.getElementById('d-cal-toggle');
+  if(dCalToggle){
+    dCalToggle.addEventListener('change', (e) => {
+      const calFields = document.getElementById('calFields');
+      if(calFields) calFields.hidden = !e.target.checked;
+      if(e.target.checked){
+        const dateVal = document.getElementById('d-due').value || todayISO();
+        const startEl = document.getElementById('d-cal-start');
+        const endEl = document.getElementById('d-cal-end');
+        if(startEl && !startEl.value) startEl.value = dateVal + "T09:00";
+        if(endEl && !endEl.value) endEl.value = dateVal + "T10:00";
+      }
+    });
+  }
 
-  document.getElementById('d-cal-toggle').addEventListener('change', (e) => {
-    document.getElementById('calFields').hidden = !e.target.checked;
-    if(e.target.checked){
-      const dateVal = document.getElementById('d-due').value || todayISO();
-      const startEl = document.getElementById('d-cal-start');
-      const endEl = document.getElementById('d-cal-end');
-      if(!startEl.value) startEl.value = dateVal + "T09:00";
-      if(!endEl.value) endEl.value = dateVal + "T10:00";
-    }
-  });
-
-  // 🔥 串接新增事項自動連動首頁跑馬燈
+  // 💡 串接新增事項自動連動首頁跑馬燈
   document.getElementById('btnSaveTodo').addEventListener('click', async () => {
     const text = document.getElementById('d-text').value.trim();
     if(!text){ alert('請輸入事項內容'); return; }
     const date = document.getElementById('d-due').value;
     if(!date){ alert('請選擇日期'); return; }
 
-    const wantsCalendar = document.getElementById('d-cal-toggle').checked;
+    const wantsCalendar = document.getElementById('d-cal-toggle') ? document.getElementById('d-cal-toggle').checked : false;
     let calStart, calEnd, calEmails;
     if(wantsCalendar){
       calStart = document.getElementById('d-cal-start').value;
@@ -882,7 +929,7 @@
         }
       }
 
-      todoModal.classList.remove('open');
+      if(todoModal) todoModal.classList.remove('open');
       document.getElementById('d-cal-toggle').checked = false;
       document.getElementById('calFields').hidden = true;
       await renderTodos();
@@ -912,5 +959,3 @@
     init();
   }
 })();
-
-}
