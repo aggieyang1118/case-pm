@@ -90,6 +90,7 @@
       </div>
       <div class="tb-stats-grid">
         <div class="stat-box"><label>契約金額</label><div class="val">${money(contract)}</div></div>
+        <div class="stat-box"><label>後擴金額</label><div class="val">${money(contract)}</div></div>
         <div class="stat-box"><label>實支金額</label><div class="val">${money(actual)}</div></div>
         <div class="stat-box"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
         <div class="stat-box"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
