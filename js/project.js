@@ -113,7 +113,7 @@
     const btnDelete = document.getElementById('btnDeleteCase');
     if(btnDelete){
       btnDelete.addEventListener('click', async () => {
-        const ok = confirm(`確定要刪除「${kase.name}」這筆標案嗎？\n這會一併刪除底下所有的工程進度、機關流程與待辦事項，且無法復原。`);
+        const ok = confirm(`確定要刪除「${kase.name}」這筆標案嗎？\n這會一併刪除底下所有的進度、機關流程與待辦事項，且無法復原。`);
         if(!ok) return;
         btnDelete.disabled = true; btnDelete.textContent = '刪除中…';
         try{
