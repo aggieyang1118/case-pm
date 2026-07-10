@@ -31,7 +31,7 @@
     </section>
 
   <div class="tabs" role="tablist">
-    <button class="tab-btn active" data-tab="net" role="tab">標案進度</button>
+    <button class="tab-btn active" data-tab="net" role="tab">工程進度</button>
     <button class="tab-btn" data-tab="flow" role="tab">機關流程</button>
     <button class="tab-btn" data-tab="todo" role="tab">本周待做事項</button>
   </div>
@@ -39,7 +39,7 @@
   <section class="tab-panel active" id="panel-net">
     <div class="panel-head">
       <div>
-        <h3>標案進度</h3>
+        <h3>工程進度看板</h3>
         <p>滑鼠按住項目卡片即可左右、跨排拖移調整階段，點擊卡片可檢視詳細紀錄或上傳照片。</p>
       </div>
     </div>
@@ -51,6 +51,7 @@
     <div class="panel-head">
       <div>
         <h3>機關流程</h3>
+        <p>從會勘、決標到竣工結算的完整流程紀錄。</p>
       </div>
       <button class="btn btn-sm btn-primary" id="btnAddFlow">＋ 新增流程</button>
     </div>
@@ -109,10 +110,6 @@
         <input type="number" id="e-contract" placeholder="0">
       </div>
       <div class="field">
-        <label後擴金額（元）</label>
-        <input type="number" id="e-contract" placeholder="0">
-      </div>
-      <div class="field">
         <label>實支金額（元）</label>
         <input type="number" id="e-executed" placeholder="0">
       </div>
@@ -122,7 +119,12 @@
         <label>已派工金額（元）</label>
         <input type="number" id="e-dispatched" placeholder="0">
       </div>
-     <div class="field-row">
+      <div class="field">
+        <label>後擴金額（元）</label>
+        <input type="number" id="e-expansion" placeholder="0">
+      </div>
+    </div>
+    <div class="field-row">
       <div class="field">
         <label>未派工金額（元）</label>
         <input type="number" id="e-undispatched" placeholder="0">
@@ -260,7 +262,7 @@
     <div class="field">
       <label class="cal-toggle-label">
         <input type="checkbox" id="ed-done">
-        已完成
+        決標完成
       </label>
     </div>
     <div class="modal-actions">
@@ -321,6 +323,6 @@
 <script src="js/firebase-config.js"></script>
 <script src="js/auth-guard.js"></script>
 <script src="js/data.js"></script>
-<script src="js/project.js"></script>
+<script src="js/project.js?v=999"></script>
 </body>
 </html>
