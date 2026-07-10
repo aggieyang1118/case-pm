@@ -26,7 +26,6 @@
   let currentTasks = []; // 目前的階段清單，供編輯 modal 查找用
   let currentFlow = [];
   
-  // 💡 補回核心全域變數
   const WEEKDAY_LABELS = ['日','一','二','三','四','五','六'];
   let calendarViewDate = new Date();
   let allTodos = [];
@@ -90,7 +89,6 @@
       </div>
       <div class="tb-stats-grid">
         <div class="stat-box"><label>契約金額</label><div class="val">${money(contract)}</div></div>
-        <div class="stat-box"><label>後擴金額</label><div class="val">${money(contract)}</div></div>
         <div class="stat-box"><label>實支金額</label><div class="val">${money(actual)}</div></div>
         <div class="stat-box"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
         <div class="stat-box"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
@@ -121,55 +119,82 @@
     }
   }
 
+  // 💡 安全防錯優化：即使 HTML 欄位 ID 稍有對不上，也絕對不會拋出 null 錯誤中斷程式
   function openEditModal(){
-    document.getElementById('e-name').value = kase.name || '';
-    document.getElementById('e-code').value = kase.code || '';
-    document.getElementById('e-contract').value = kase.contractAmount || 0;
-    document.getElementById('e-executed').value = kase.executedAmount || 0;
-    document.getElementById('e-dispatched').value = kase.dispatchedAmount || 0;
-    document.getElementById('e-expansion').value = kase.expansionAmount || 0;
-    document.getElementById('e-undispatched').value = kase.undispatchedAmount || 0;
-    document.getElementById('e-available').value = kase.availableAmount || 0;
-    document.getElementById('e-contractor').value = kase.contractor || '';
-    document.getElementById('e-progress').value = kase.latestProgress || '';
-    document.getElementById('editCaseModal').classList.add('open');
+    const fields = {
+      'e-name': kase.name || '',
+      'e-code': kase.code || '',
+      'e-contract': kase.contractAmount || 0,
+      'e-executed': kase.executedAmount || 0,
+      'e-dispatched': kase.dispatchedAmount || 0,
+      'e-expansion': kase.expansionAmount || 0,
+      'e-undispatched': kase.undispatchedAmount || 0,
+      'e-available': kase.availableAmount || 0,
+      'e-contractor': kase.contractor || '',
+      'e-progress': kase.latestProgress || ''
+    };
+
+    Object.keys(fields).forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.value = fields[id];
+    });
+
+    const modal = document.getElementById('editCaseModal');
+    if(modal) modal.classList.add('open');
   }
 
   const editModal = document.getElementById('editCaseModal');
+  if(editModal){
+    const btnCancel = document.getElementById('btnCancelEdit');
+    if(btnCancel) btnCancel.addEventListener('click', () => editModal.classList.remove('open'));
+    editModal.addEventListener('click', e => { if(e.target === editModal) editModal.classList.remove('open'); });
+  }
 
-  document.getElementById('btnCancelEdit').addEventListener('click', () => editModal.classList.remove('open'));
-  editModal.addEventListener('click', e => { if(e.target === editModal) editModal.classList.remove('open'); });
-
+  // 💡 安全防錯優化：讀取欄位內容時自動做安全性檢查
   document.getElementById('btnSaveEdit').addEventListener('click', async () => {
-    const name = document.getElementById('e-name').value.trim();
+    const nameEl = document.getElementById('e-name');
+    const name = nameEl ? nameEl.value.trim() : '';
     if(!name){ alert('請輸入標案名稱'); return; }
+    
     const btn = document.getElementById('btnSaveEdit');
-    btn.disabled = true; btn.textContent = '儲存中…';
+    if(btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
+    
     try{
+      const getValue = id => {
+        const el = document.getElementById(id);
+        return el ? (el.type === 'number' ? Number(el.value) : el.value.trim()) : null;
+      };
+
       const patch = {
         name,
-        code: document.getElementById('e-code').value.trim() || kase.code,
-        contractAmount: Number(document.getElementById('e-contract').value) || 0,
-        executedAmount: Number(document.getElementById('e-executed').value) || 0,
-        dispatchedAmount: Number(document.getElementById('f-dispatched') ? document.getElementById('f-dispatched').value : (kase.dispatchedAmount || 0)),
-        expansionAmount: Number(document.getElementById('e-expansion').value) || 0,
-        undispatchedAmount: Number(document.getElementById('e-undispatched').value) || 0,
-        availableAmount: Number(document.getElementById('e-available').value) || 0,
-        contractor: document.getElementById('e-contractor').value.trim() || '廠商名稱',
-        latestProgress: document.getElementById('e-progress').value.trim(),
+        code: getValue('e-code') ?? kase.code,
+        contractAmount: getValue('e-contract') ?? 0,
+        executedAmount: getValue('e-executed') ?? 0,
+        dispatchedAmount: getValue('e-dispatched') ?? getValue('f-dispatched') ?? 0,
+        expansionAmount: getValue('e-expansion') ?? 0,
+        undispatchedAmount: getValue('e-undispatched') ?? 0,
+        availableAmount: getValue('e-available') ?? 0,
+        contractor: getValue('e-contractor') || '廠商名稱',
+        latestProgress: getValue('e-progress') ?? '',
       };
+      
       await DataStore.updateCase(caseId, patch);
       Object.assign(kase, patch);
-      editModal.classList.remove('open');
-      document.getElementById('pageTitle').textContent = kase.name;
-      document.getElementById('crumbName').textContent = kase.name;
+      
+      if(editModal) editModal.classList.remove('open');
+      
+      const titleEl = document.getElementById('pageTitle');
+      if(titleEl) titleEl.textContent = kase.name;
+      const crumbEl = document.getElementById('crumbName');
+      if(crumbEl) crumbEl.textContent = kase.name;
+      
       document.title = kase.name + '｜工程案件管理';
       await renderTitleBlock();
     } catch(err){
       console.error(err);
       alert('儲存失敗，請確認網路連線或 Firebase 設定後再試一次。');
     } finally{
-      btn.disabled = false; btn.textContent = '儲存變更';
+      if(btn) { btn.disabled = false; btn.textContent = '儲存變更'; }
     }
   });
 
@@ -887,3 +912,5 @@
     init();
   }
 })();
+
+}
