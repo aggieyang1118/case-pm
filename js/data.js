@@ -16,7 +16,7 @@
 
 // v2：升級版本號，讓瀏覽器裡舊的（含假範例資料的）本機儲存內容直接失效，
 // 改成全新的空白狀態，不需要使用者自己手動清除瀏覽器資料。
-const DB_KEY = 'epm_demo_db_v2';
+const DB_KEY = 'epm_portfolio_demo_v1';
 
 const STAGE_LABELS = ['決標', '開工前', '開工後', '派工中','已竣工', '估驗', '驗收', '決算'];
 
@@ -24,13 +24,137 @@ const STAGE_LABELS = ['決標', '開工前', '開工後', '派工中','已竣工
 // 故意留空：不要放任何範例標案或範例待辦事項，
 // 這樣畫面上出現的每一筆資料，一定是你自己在網站裡建立的，
 // 不會有「畫面上有、後端卻查不到」的假資料混在一起。
+// 作品集示範版的起始資料：全部為虛構案件、虛構廠商與虛構金額。
+// 日期以「今天」為基準往前後推算，任何時候打開都會看到合理的進度與本月待辦。
 function seedData(){
+  const now = new Date();
+  const iso = (offsetDays) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  };
+  const md = (offsetDays) => { const p = iso(offsetDays).split('-'); return Number(p[1]) + '/' + Number(p[2]); };
+  const task = (id, name, phase, owner, start, end, status, note) =>
+    ({ id, name, phase, owner, start: iso(start), end: iso(end), status, note: note || '', attachments: [] });
+  const flow = (id, order, title, desc, status, date) => ({ id, order, title, desc, status, date });
+  const todo = (id, text, offset, priority, done) => ({ id, text, date: iso(offset), priority, done: !!done });
+
   return {
-    cases: [],
-    weeklyGlobal: [],
-    tasks: {},
-    flow: {},
-    todos: {},
+    cases: [
+      {
+        id: 'demo1', code: 'DEMO-115-01',
+        name: '示範區道路 AC 路面刨鋪工程（第一期）',
+        contractor: '範例營造有限公司',
+        contractAmount: 12800000, expansionAmount: 1500000, executedAmount: 7420000,
+        dispatchedAmount: 9600000, undispatchedAmount: 4700000, availableAmount: 4700000,
+        latestProgress: '第 3 批派工路段已完成刨鋪，待監造單位會同查驗。',
+        startDate: iso(-120), endDate: iso(90),
+      },
+      {
+        id: 'demo2', code: 'DEMO-115-02',
+        name: '示範里排水溝改善工程',
+        contractor: '虛構土木包工業',
+        contractAmount: 4350000, expansionAmount: 0, executedAmount: 980000,
+        dispatchedAmount: 4350000, undispatchedAmount: 0, availableAmount: 0,
+        latestProgress: '已開工，第一段溝體施作中，預計下週澆置混凝土。',
+        startDate: iso(-30), endDate: iso(150),
+      },
+      {
+        id: 'demo3', code: 'DEMO-115-03',
+        name: '示範路人行道無障礙改善工程',
+        contractor: '尚未決標',
+        contractAmount: 6200000, expansionAmount: 0, executedAmount: 0,
+        dispatchedAmount: 0, undispatchedAmount: 6200000, availableAmount: 6200000,
+        latestProgress: '設計書圖已核定，上網公告招標中。',
+        startDate: '', endDate: '',
+      },
+      {
+        id: 'demo4', code: 'DEMO-114-07',
+        name: '年度道路緊急搶修開口契約',
+        contractor: '範例工程股份有限公司',
+        contractAmount: 8000000, expansionAmount: 800000, executedAmount: 8650000,
+        dispatchedAmount: 8800000, undispatchedAmount: 0, availableAmount: 150000,
+        latestProgress: '工程已竣工，驗收缺失改善完成，辦理結算中。',
+        startDate: iso(-330), endDate: iso(-20),
+      },
+    ],
+
+    weeklyGlobal: [
+      { id: 'w1', text: '【示範區道路 AC 路...】第 3 批路段會同查驗', due: md(2), urgent: true },
+      { id: 'w2', text: '【示範里排水溝改善...】提送混凝土配比報告', due: md(4), urgent: false },
+      { id: 'w3', text: '【年度道路緊急搶修...】結算書送會計室', due: md(6), urgent: false },
+    ],
+
+    tasks: {
+      demo1: [
+        task('t101', '決標及簽約', 0, '承辦人', -130, -122, 'done', '契約書用印完成'),
+        task('t102', '開工前協調會、交維計畫核定', 1, '監造單位', -122, -115, 'done'),
+        task('t103', '申報開工', 2, '承辦人', -115, -114, 'done'),
+        task('t104', '第 1 批路段派工（3 條路）', 3, '承辦人', -100, -70, 'done'),
+        task('t105', '第 2 批路段派工（4 條路）', 3, '承辦人', -60, -25, 'done'),
+        task('t106', '第 3 批路段派工（2 條路）', 3, '承辦人', -15, 5, 'progress', '刨鋪完成，待會同查驗'),
+        task('t107', '第 1 次估驗計價', 4, '監造單位', -40, -30, 'done'),
+      ],
+      demo2: [
+        task('t201', '決標及簽約', 0, '承辦人', -50, -42, 'done'),
+        task('t202', '管線會勘與施工計畫核定', 1, '監造單位', -42, -32, 'done'),
+        task('t203', '申報開工', 2, '承辦人', -30, -30, 'done'),
+        task('t204', '第一段溝體施作', 3, '廠商', -20, 10, 'progress', '下週澆置混凝土'),
+      ],
+      demo3: [
+        task('t301', '設計書圖核定', 0, '設計單位', -40, -20, 'done'),
+        task('t302', '上網公告招標', 0, '承辦人', -10, 12, 'progress', '預計公告 21 天'),
+      ],
+      demo4: [
+        task('t401', '決標及簽約', 0, '承辦人', -340, -332, 'done'),
+        task('t402', '開工前協調會', 1, '監造單位', -332, -330, 'done'),
+        task('t403', '申報開工', 2, '承辦人', -330, -330, 'done'),
+        task('t404', '全年度搶修派工（共 46 件）', 3, '承辦人', -325, -25, 'done'),
+        task('t405', '申報竣工', 4, '廠商', -22, -20, 'done'),
+        task('t406', '驗收及缺失改善', 5, '驗收人員', -18, -5, 'done'),
+        task('t407', '結算書編製', 6, '承辦人', -4, 7, 'progress'),
+      ],
+    },
+
+    flow: {
+      demo1: [
+        flow('f101', 0, '簽辦派工單', '依里長及 1999 反映路段排定派工順序。', 'done', '已完成'),
+        flow('f102', 1, '會同查驗', '監造、廠商、承辦三方會同查驗刨鋪厚度與平整度。', 'current', md(2)),
+        flow('f103', 2, '估驗計價', '彙整查驗紀錄後提送第 2 次估驗。', 'pending', '預計 ' + md(20)),
+      ],
+      demo2: [
+        flow('f201', 0, '材料送審', '混凝土配比報告、鋼筋出廠證明。', 'current', md(4)),
+        flow('f202', 1, '施工抽查', '品管人員抽查溝體尺寸與鋼筋間距。', 'pending', ''),
+      ],
+      demo3: [
+        flow('f301', 0, '招標公告', '公告期間答覆廠商疑義。', 'current', '截標 ' + md(12)),
+        flow('f302', 1, '開標及決標', '', 'pending', ''),
+      ],
+      demo4: [
+        flow('f401', 0, '驗收', '缺失 3 項已改善完成。', 'done', '已完成'),
+        flow('f402', 1, '結算', '結算書送會計室審核。', 'current', md(6)),
+        flow('f403', 2, '保固金扣留', '', 'pending', ''),
+      ],
+    },
+
+    todos: {
+      demo1: [
+        todo('d101', '第 3 批路段會同查驗', 2, 'high'),
+        todo('d102', '回覆里長路面標線補劃進度', 3, 'mid'),
+        todo('d103', '彙整第 2 次估驗資料', 9, 'mid'),
+        todo('d104', '交維告示牌現場巡查', -3, 'low', true),
+      ],
+      demo2: [
+        todo('d201', '提送混凝土配比報告', 4, 'mid'),
+        todo('d202', '溝體混凝土澆置前檢查', 8, 'high'),
+      ],
+      demo3: [
+        todo('d301', '答覆廠商招標疑義', 5, 'mid'),
+      ],
+      demo4: [
+        todo('d401', '結算書送會計室', 6, 'mid'),
+        todo('d402', '驗收紀錄歸檔', -2, 'low', true),
+      ],
+    },
   };
 }
 

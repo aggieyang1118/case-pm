@@ -703,3 +703,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   opacity: 0.3;
   background: var(--accent-pale) !important;
 }
+
+/* 示範版提示列 */
+.demo-banner{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px 16px;
+  padding:9px 16px; background:#173a66; color:#fff; font-size:13px; line-height:1.5; text-align:center; }
+.demo-banner b{ display:inline-block; margin-right:8px; padding:0 8px; border:1px solid rgba(255,255,255,.6); border-radius:4px; font-weight:600; }
+.demo-banner button{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.6); border-radius:6px;
+  padding:3px 10px; font-size:12px; cursor:pointer; font-family:inherit; }
+.demo-banner button:hover{ background:rgba(255,255,255,.12); }

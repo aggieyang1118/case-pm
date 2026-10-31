@@ -2,7 +2,7 @@
    calendar.js — Google 日曆整合（已填入全新日曆 ID）
    ============================================================ */
 
-const GOOGLE_CALENDAR_EMBED_ID = "448bd3ec62d785cab36aa131f4a51149e76350cdda72f3a0d2962dd233fa5042@group.calendar.google.com"; 
+const GOOGLE_CALENDAR_EMBED_ID = ""; // 示範版不嵌入真實日曆 
 
 function pad2(n){ return String(n).padStart(2, '0'); }
 
