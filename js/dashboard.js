@@ -32,7 +32,7 @@ async function renderMarquee() {
     }
 
     // 有資料才顯示
-    stripEl.style.display = 'block';
+    stripEl.style.display = '';
 
     const html = allWeeklyItems.map(i => `
       <li class="${i.urgent ? 'urgent':''}">

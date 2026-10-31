@@ -102,7 +102,7 @@
         <div class="stat-box"><label>已派工金額</label><div class="val">${money(dispatched)}</div></div>
         <div class="stat-box"><label>未派工金額</label><div class="val">${money(undispatched)}</div></div>
         <div class="stat-box"><label>可派工金額</label><div class="val">${money(available)}</div></div>
-        <div class="stat-box highlight"><label>執行率</label><div class="val">${rate}%</div></div>
+        <div class="stat-box highlight"><label>執行率</label><div class="val">${rate}%</div><div class="rate-bar"><i style="width:${Math.min(rate,100)}%"></i></div></div>
       </div>
     `;
 

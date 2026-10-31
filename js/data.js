@@ -16,7 +16,7 @@
 
 // v2：升級版本號，讓瀏覽器裡舊的（含假範例資料的）本機儲存內容直接失效，
 // 改成全新的空白狀態，不需要使用者自己手動清除瀏覽器資料。
-const DB_KEY = 'epm_portfolio_demo_v1';
+const DB_KEY = 'epm_portfolio_demo_v2';
 
 const STAGE_LABELS = ['決標', '開工前', '開工後', '派工中','已竣工', '估驗', '驗收', '決算'];
 
@@ -36,7 +36,12 @@ function seedData(){
   const task = (id, name, phase, owner, start, end, status, note) =>
     ({ id, name, phase, owner, start: iso(start), end: iso(end), status, note: note || '', attachments: [] });
   const flow = (id, order, title, desc, status, date) => ({ id, order, title, desc, status, date });
-  const todo = (id, text, offset, priority, done) => ({ id, text, date: iso(offset), priority, done: !!done });
+  // 待辦日期一律落在「這個月」，月曆打開就看得到：超出本月就改往回推
+  const inMonth = (offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    return d.getMonth() === now.getMonth() ? offset : -offset;
+  };
+  const todo = (id, text, offset, priority, done) => ({ id, text, date: iso(inMonth(offset)), priority, done: !!done });
 
   return {
     cases: [
